@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-google-blue: #1A73E8;
+  --color-google-green: #34A853;
+  --color-google-yellow: #FBBC04;
+  --color-google-red: #EA4335;
+  --color-google-green-text: #1E8E3E;
+  --color-google-blue-light: #E8F0FE;
+  --color-google-green-light: #E6F4EA;
+  
+  --color-background: #F8FAFD;
+  --color-surface: #FFFFFF;
+  --color-text-main: #202124;
+  --color-text-secondary: #5F6368;
+  --color-border-subtle: #E0E3EB;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-text-main font-sans antialiased;
+  }
+}

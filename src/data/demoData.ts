@@ -1,0 +1,166 @@
+export type DocumentStatus = "Ready" | "Drafting" | "Not Started" | "Needs Review";
+
+export interface Scholarship {
+  id: string;
+  name: string;
+  provider: string;
+  country: string;
+  degree: string;
+  coverage: string;
+  status: string;
+  cycle: string;
+  difficulty: "High" | "Medium" | "Low";
+  matchScore: number;
+  fitCategory: string;
+  officialLink: string;
+  lastVerified: string;
+  whyMatch: string;
+}
+
+export const demoStudent = {
+  name: "Alya Putri",
+  origin: "Indonesia",
+  gpa: 3.62,
+  ielts: 7.0,
+  targetDegree: "Master’s",
+  targetCountries: ["UK", "Europe", "Australia", "Japan"],
+  fields: ["Public Policy", "Data Science", "Sustainable Development"],
+  selectedScholarship: "Chevening",
+  readiness: 82,
+  roadmapProgress: 22,
+  documentReadiness: 38,
+  interviewScore: 72,
+  finalReadiness: 76,
+  status: "Almost Ready",
+};
+
+export const scholarshipMatches: Scholarship[] = [
+  {
+    id: "chevening",
+    name: "Chevening Scholarship",
+    provider: "UK Government",
+    country: "UK",
+    degree: "Master's",
+    coverage: "Fully Funded",
+    status: "Applications opening soon",
+    cycle: "Aug - Nov",
+    difficulty: "High",
+    matchScore: 88,
+    fitCategory: "Strong Fit",
+    officialLink: "https://www.chevening.org/",
+    lastVerified: "2024-05-01",
+    whyMatch: "Your target degree matches this scholarship. The UK is one of your target countries. You already have IELTS readiness. Your leadership and community impact are relevant.",
+  },
+  {
+    id: "erasmus",
+    name: "Erasmus Mundus Joint Masters",
+    provider: "European Union",
+    country: "Europe (Multiple)",
+    degree: "Master's",
+    coverage: "Fully Funded",
+    status: "Closed",
+    cycle: "Oct - Jan",
+    difficulty: "High",
+    matchScore: 85,
+    fitCategory: "Strong Fit",
+    officialLink: "https://erasmus-plus.ec.europa.eu/",
+    lastVerified: "2024-04-15",
+    whyMatch: "Strong alignment with Sustainable Development and Public Policy programs in Europe.",
+  },
+  {
+    id: "aas",
+    name: "Australia Awards Scholarship",
+    provider: "Australian Government",
+    country: "Australia",
+    degree: "Master's/PhD",
+    coverage: "Fully Funded",
+    status: "Open",
+    cycle: "Feb - Apr",
+    difficulty: "Medium",
+    matchScore: 82,
+    fitCategory: "Good Fit",
+    officialLink: "https://www.dfat.gov.au/people-to-people/australia-awards",
+    lastVerified: "2024-04-20",
+    whyMatch: "Good match for your Data Science interests and target country.",
+  },
+  {
+    id: "mext",
+    name: "MEXT Scholarship",
+    provider: "Japanese Government",
+    country: "Japan",
+    degree: "Master's/PhD",
+    coverage: "Fully Funded",
+    status: "Open",
+    cycle: "Apr - Jun",
+    difficulty: "High",
+    matchScore: 78,
+    fitCategory: "Good Fit",
+    officialLink: "https://www.mext.go.jp/en/",
+    lastVerified: "2024-04-10",
+    whyMatch: "Matches your target country and research potential.",
+  },
+  {
+    id: "daad",
+    name: "DAAD Scholarship",
+    provider: "German Government",
+    country: "Germany",
+    degree: "Master's/PhD",
+    coverage: "Fully Funded",
+    status: "Varies",
+    cycle: "Aug - Oct",
+    difficulty: "High",
+    matchScore: 73,
+    fitCategory: "Good Fit",
+    officialLink: "https://www.daad.de/en/",
+    lastVerified: "2024-03-25",
+    whyMatch: "Strong match for Sustainable Development programs.",
+  },
+  {
+    id: "fulbright",
+    name: "Fulbright Foreign Student Program",
+    provider: "US Government",
+    country: "USA",
+    degree: "Master's/PhD",
+    coverage: "Fully Funded",
+    status: "Closed",
+    cycle: "Feb - May",
+    difficulty: "High",
+    matchScore: 70,
+    fitCategory: "Good Fit",
+    officialLink: "https://foreign.fulbrightonline.org/",
+    lastVerified: "2024-02-15",
+    whyMatch: "Relevant for leadership and cultural exchange focus.",
+  },
+  {
+    id: "gates",
+    name: "Gates Cambridge Scholarship",
+    provider: "Bill & Melinda Gates Foundation",
+    country: "UK",
+    degree: "Master's/PhD",
+    coverage: "Fully Funded",
+    status: "Closed",
+    cycle: "Sep - Jan",
+    difficulty: "High",
+    matchScore: 68,
+    fitCategory: "Moderate Fit",
+    officialLink: "https://www.gatescambridge.org/",
+    lastVerified: "2024-01-20",
+    whyMatch: "Extremely competitive, requires very strong research focus.",
+  },
+  {
+    id: "lpdp",
+    name: "LPDP Scholarship",
+    provider: "Indonesian Government",
+    country: "Global (Multiple)",
+    degree: "Master's/PhD",
+    coverage: "Fully Funded",
+    status: "Open (Batch 2)",
+    cycle: "Jan - Feb / Jun - Jul",
+    difficulty: "Medium",
+    matchScore: 92,
+    fitCategory: "Strong Fit",
+    officialLink: "https://lpdp.kemenkeu.go.id/",
+    lastVerified: "2024-05-01",
+    whyMatch: "As an Indonesian citizen with a strong GPA, this is your primary backup and strong fit for local funding.",
+  },
+];
