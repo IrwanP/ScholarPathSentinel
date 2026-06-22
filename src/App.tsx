@@ -3,91 +3,112 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  useLocation,
+  useNavigate
+} from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
+import { Info } from "lucide-react";
+
 import Sidebar from "./components/Sidebar";
 import OverviewPage from "./app/page";
 import ScholarshipsPage from "./app/scholarships/page";
 import ReadinessPage from "./app/readiness/page";
 import PreparationPage from "./app/preparation/page";
 import TrustPage from "./app/trust/page";
+import SentinelPage from "./app/sentinel/page";
+
 import { ProfileProvider, useProfile } from "./context/ProfileContext";
 import StudentProfileForm from "./components/StudentProfileForm";
-import { Info } from "lucide-react";
 
 function AppContent() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { mode, profile, setIsProfileFormOpen, feedback } = useProfile();
 
-  const pageTitle = {
+  const { mode, setIsProfileFormOpen, feedback } = useProfile();
+
+  const pageTitle: Record<string, string> = {
     "/": "Overview",
     "/scholarships": "Scholarships",
     "/readiness": "Readiness",
     "/preparation": "Preparation",
-    "/trust": "Trust & Data"
-  }[location.pathname] || "ScholarPath AI";
+    "/trust": "Trust & Data",
+    "/sentinel": "ScholarPath Sentinel"
+  };
+
+  const currentPageTitle = pageTitle[location.pathname] || "ScholarPath AI";
 
   const handleStartJourney = () => {
     if (mode === "empty") {
       setIsProfileFormOpen(true);
-    } else {
-      navigate("/readiness");
+      return;
     }
+
+    navigate("/readiness");
   };
 
   return (
-    <div className="flex bg-background h-screen overflow-hidden">
+    <div className="flex min-h-screen bg-slate-50 text-gray-900">
       <Sidebar />
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <header className="h-16 bg-white border-b border-border-subtle flex items-center justify-between px-8 shrink-0 print:hidden">
-          <h1 className="text-xl font-medium text-text-main">{pageTitle}</h1>
-          <div className="flex items-center gap-4">
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-8">
+          <h1 className="text-lg font-bold">{currentPageTitle}</h1>
+
+          <div className="flex items-center gap-3">
             {mode === "demo" && (
-              <span className="px-3 py-1 bg-google-green-light text-google-green-text rounded-full text-[10px] font-bold uppercase tracking-wider border border-google-green/20">
+              <span className="rounded-full bg-green-50 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-green-700">
                 Demo Profile Loaded
               </span>
             )}
+
             {mode === "custom" && (
-              <span className="px-3 py-1 bg-google-blue-light text-google-blue rounded-full text-[10px] font-bold uppercase tracking-wider border border-google-blue/10">
+              <span className="rounded-full bg-blue-50 px-4 py-1.5 text-xs font-bold uppercase tracking-wide text-blue-700">
                 My Profile
               </span>
             )}
-            <button 
+
+            <button
               onClick={handleStartJourney}
-              className="px-4 py-2 bg-google-blue text-white rounded-md text-sm font-bold shadow-sm hover:bg-blue-700 transition-colors"
+              className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-blue-700"
             >
               Start My Journey
             </button>
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto print:overflow-visible">
-          <div className="max-w-5xl mx-auto px-8 py-10 print:p-0 print:max-w-none">
-            <Routes>
+
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2 }}
+            className="flex-1"
+          >
+            <Routes location={location}>
               <Route path="/" element={<OverviewPage />} />
               <Route path="/scholarships" element={<ScholarshipsPage />} />
               <Route path="/readiness" element={<ReadinessPage />} />
               <Route path="/preparation" element={<PreparationPage />} />
               <Route path="/trust" element={<TrustPage />} />
+              <Route path="/sentinel" element={<SentinelPage />} />
             </Routes>
-          </div>
-        </main>
-      </div>
-      <StudentProfileForm />
-      
-      <AnimatePresence>
-        {feedback && (
-          <motion.div
-            initial={{ opacity: 0, y: 50, x: "-50%" }}
-            animate={{ opacity: 1, y: 0, x: "-50%" }}
-            exit={{ opacity: 0, y: 20, x: "-50%" }}
-            className="fixed bottom-8 left-1/2 -translate-x-1/2 z-[60] bg-google-blue-dark text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 border border-white/10 backdrop-blur-md"
-          >
-            <Info className="h-4 w-4 text-blue-200" />
-            <span className="text-sm font-bold tracking-tight">{feedback}</span>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </AnimatePresence>
+      </div>
+
+      <StudentProfileForm />
+
+      {feedback && (
+        <div className="fixed bottom-6 right-6 z-50 flex max-w-sm items-start gap-3 rounded-2xl border border-blue-100 bg-white p-4 text-sm text-gray-700 shadow-xl">
+          <Info className="mt-0.5 h-5 w-5 shrink-0 text-blue-600" />
+          <p>{feedback}</p>
+        </div>
+      )}
     </div>
   );
 }
@@ -101,4 +122,3 @@ export default function App() {
     </Router>
   );
 }
-
