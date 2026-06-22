@@ -8,8 +8,15 @@ export interface StudentProfile {
   targetCountries: string[];
   fields: string[];
   gpa: number;
-  englishStatus: "Not Taken" | "IELTS" | "TOEFL" | "Duolingo" | "Other";
+  englishStatus:
+  | "Not Taken"
+  | "IELTS"
+  | "TOEFL iBT"
+  | "TOEFL iBT 2026"
+  | "Duolingo"
+  | "Other";
   englishScore: string;
+  profilePhotoUrl?: string;
   hasLeadership: boolean;
   hasResearch: boolean;
   hasCommunityImpact: boolean;
