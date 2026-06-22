@@ -56,6 +56,8 @@ interface SentinelResult {
         status: string;
     }>;
     mentorSummary?: string;
+    mentorSummarySource?: string;
+    geminiWarning?: string;
 }
 
 function getScoreTone(score: number) {
@@ -113,23 +115,35 @@ export default function SentinelPage() {
         setErrorMessage("");
 
         try {
+            const analysisProfile = {
+                ...profile,
+                profilePhotoUrl: undefined
+            };
+
             const response = await fetch("/api/sentinel/analyze", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ profile })
+                body: JSON.stringify({
+                    profile: analysisProfile
+                })
             });
 
             const payload = await response.json().catch(() => null);
 
             if (!response.ok) {
-                throw new Error(payload?.error || "Sentinel analysis request failed.");
+                throw new Error(
+                    payload?.details ||
+                    payload?.error ||
+                    `Sentinel analysis request failed with status ${response.status}.`
+                );
             }
 
             setResult(payload);
         } catch (error) {
             console.error(error);
+
             setErrorMessage(
                 error instanceof Error
                     ? error.message
@@ -187,7 +201,7 @@ export default function SentinelPage() {
                         type="button"
                         onClick={runSentinel}
                         disabled={loading}
-                        className="inline-flex min-w-64 items-center justify-center gap-3 rounded-2xl bg-google-blue px-8 py-5 text-lg font-bold text-white shadow-lg shadow-google-blue/20 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        className="inline-flex min-w-64 cursor-pointer items-center justify-center gap-3 rounded-2xl bg-google-blue px-8 py-5 text-lg font-bold text-white shadow-lg shadow-google-blue/20 transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                         {loading ? (
                             <>
@@ -217,7 +231,7 @@ export default function SentinelPage() {
                     <button
                         type="button"
                         onClick={() => setIsProfileFormOpen(true)}
-                        className="mt-6 rounded-xl bg-google-blue px-6 py-3 text-sm font-bold text-white hover:bg-blue-700"
+                        className="mt-6 cursor-pointer rounded-xl bg-google-blue px-6 py-3 text-sm font-bold text-white hover:bg-blue-700"
                     >
                         Open Profile Form
                     </button>
@@ -230,6 +244,16 @@ export default function SentinelPage() {
                     <div>
                         <p className="font-bold">Sentinel analysis failed</p>
                         <p className="mt-1 text-sm">{errorMessage}</p>
+                    </div>
+                </section>
+            )}
+
+            {result?.geminiWarning && (
+                <section className="flex items-start gap-3 rounded-2xl border border-yellow-200 bg-yellow-50 p-5 text-yellow-800">
+                    <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                        <p className="font-bold">Gemini fallback mode</p>
+                        <p className="mt-1 text-sm">{result.geminiWarning}</p>
                     </div>
                 </section>
             )}
