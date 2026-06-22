@@ -79,7 +79,9 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => setIsProfileFormOpen(true)}
-          className="flex w-full items-center gap-3 rounded-xl bg-gray-100 p-3 text-left transition-colors hover:bg-gray-200"
+          className="flex w-full cursor-pointer items-center gap-3 rounded-xl bg-gray-100 p-3 text-left transition-colors hover:bg-gray-200"
+          aria-label="Open student profile form"
+          title="Edit profile"
         >
           <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-google-red text-lg font-bold text-white">
             {profile?.profilePhotoUrl ? (
