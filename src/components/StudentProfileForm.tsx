@@ -24,6 +24,22 @@ import { cn } from "../lib/utils";
 
 type EnglishStatus = StudentProfile["englishStatus"];
 
+type ExperienceKey =
+  | "hasLeadership"
+  | "hasResearch"
+  | "hasCommunityImpact"
+  | "hasWorkExperience"
+  | "hasFinancialNeed";
+
+const currentYear = new Date().getFullYear();
+
+const intakeYearOptions = [
+  String(currentYear),
+  String(currentYear + 1),
+  String(currentYear + 2),
+  "Later"
+];
+
 const countries = [
   "UK",
   "USA",
@@ -72,17 +88,77 @@ const emptyProfile: StudentProfile = {
   hasCommunityImpact: false,
   hasWorkExperience: false,
   hasFinancialNeed: false,
-  preferredIntakeYear: "2026",
+  preferredIntakeYear: String(currentYear),
   readinessScore: 0
 };
 
 function normalizeEnglishStatus(value: string): EnglishStatus {
   if (value === "TOEFL") {
-    return "TOEFL iBT" as EnglishStatus;
+    return "TOEFL iBT";
   }
 
-  return value as EnglishStatus;
+  if (
+    value === "Not Taken" ||
+    value === "IELTS" ||
+    value === "TOEFL iBT" ||
+    value === "TOEFL iBT 2026" ||
+    value === "Duolingo" ||
+    value === "Other"
+  ) {
+    return value;
+  }
+
+  return "Not Taken";
 }
+
+function normalizeIntakeYear(value: string | undefined): string {
+  if (!value) return String(currentYear);
+  if (value === "Later") return value;
+
+  const numericYear = Number(value);
+
+  if (Number.isNaN(numericYear)) {
+    return String(currentYear);
+  }
+
+  if (numericYear < currentYear) {
+    return String(currentYear);
+  }
+
+  return value;
+}
+
+const experienceItems: Array<{
+  key: ExperienceKey;
+  label: string;
+  icon: typeof Users;
+}> = [
+    {
+      key: "hasLeadership",
+      label: "Leadership Experience",
+      icon: Users
+    },
+    {
+      key: "hasResearch",
+      label: "Research Experience",
+      icon: Lightbulb
+    },
+    {
+      key: "hasCommunityImpact",
+      label: "Community Impact",
+      icon: Trophy
+    },
+    {
+      key: "hasWorkExperience",
+      label: "Work Experience",
+      icon: Briefcase
+    },
+    {
+      key: "hasFinancialNeed",
+      label: "Financial Need Focus",
+      icon: Wallet
+    }
+  ];
 
 export default function StudentProfileForm() {
   const {
@@ -94,23 +170,39 @@ export default function StudentProfileForm() {
   } = useProfile();
 
   const [formData, setFormData] = useState<StudentProfile>(emptyProfile);
+  const [fieldsText, setFieldsText] = useState("");
 
   useEffect(() => {
     if (profile) {
-      setFormData({
+      const normalizedProfile: StudentProfile = {
         ...emptyProfile,
         ...profile,
         englishStatus: normalizeEnglishStatus(profile.englishStatus),
-        profilePhotoUrl: profile.profilePhotoUrl || ""
-      });
+        profilePhotoUrl: profile.profilePhotoUrl || "",
+        preferredIntakeYear: normalizeIntakeYear(profile.preferredIntakeYear)
+      };
+
+      setFormData(normalizedProfile);
+      setFieldsText(normalizedProfile.fields.join(", "));
     } else {
       setFormData(emptyProfile);
+      setFieldsText("");
     }
   }, [profile]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
-    setCustomProfile(formData);
+
+    const normalizedFields = fieldsText
+      .split(",")
+      .map((field) => field.trim())
+      .filter(Boolean);
+
+    setCustomProfile({
+      ...formData,
+      fields: normalizedFields,
+      preferredIntakeYear: normalizeIntakeYear(formData.preferredIntakeYear)
+    });
   };
 
   const handleCountryToggle = (country: string) => {
@@ -465,19 +557,27 @@ export default function StudentProfileForm() {
               </label>
               <input
                 type="text"
-                value={formData.fields.join(", ")}
-                onChange={(event) =>
+                value={fieldsText}
+                onChange={(event) => {
+                  const value = event.target.value;
+
+                  setFieldsText(value);
+
                   setFormData({
                     ...formData,
-                    fields: event.target.value
+                    fields: value
                       .split(",")
                       .map((field) => field.trim())
                       .filter(Boolean)
-                  })
-                }
-                placeholder="Ex: AI Strategy, Digital Transformation, Public Policy"
+                  });
+                }}
+                placeholder="Ex: AI Strategy, Digital Transformation, Public Policy, Data Science, GovTech"
                 className="w-full rounded-xl border border-border-subtle px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
               />
+              <p className="text-xs text-text-secondary">
+                Separate multiple fields with commas. Spaces, dots, hyphens,
+                slashes, ampersands, and parentheses are allowed.
+              </p>
             </section>
 
             <section className="space-y-4">
@@ -486,36 +586,9 @@ export default function StudentProfileForm() {
               </label>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {[
-                  {
-                    key: "hasLeadership",
-                    label: "Leadership Experience",
-                    icon: Users
-                  },
-                  {
-                    key: "hasResearch",
-                    label: "Research Experience",
-                    icon: Lightbulb
-                  },
-                  {
-                    key: "hasCommunityImpact",
-                    label: "Community Impact",
-                    icon: Trophy
-                  },
-                  {
-                    key: "hasWorkExperience",
-                    label: "Work Experience",
-                    icon: Briefcase
-                  },
-                  {
-                    key: "hasFinancialNeed",
-                    label: "Financial Need Focus",
-                    icon: Wallet
-                  }
-                ].map((item) => {
+                {experienceItems.map((item) => {
                   const Icon = item.icon;
-                  const key = item.key as keyof StudentProfile;
-                  const active = Boolean(formData[key]);
+                  const active = Boolean(formData[item.key]);
 
                   return (
                     <button
@@ -557,10 +630,11 @@ export default function StudentProfileForm() {
                 }
                 className="w-full rounded-xl border border-border-subtle px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
               >
-                <option value="2025">2025</option>
-                <option value="2026">2026</option>
-                <option value="2027">2027</option>
-                <option value="Later">Later</option>
+                {intakeYearOptions.map((year) => (
+                  <option key={year} value={year}>
+                    {year}
+                  </option>
+                ))}
               </select>
             </section>
           </div>
