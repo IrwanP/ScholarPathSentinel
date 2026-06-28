@@ -1,20 +1,24 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# ScholarPath Sentinel
 
-# Run and deploy your AI Studio app
+ScholarPath Sentinel is an agentic AI scholarship readiness assistant built for the **AI Agents: Intensive Vibe Coding Capstone Project**.
 
-This contains everything you need to run your app locally.
+It helps students assess scholarship readiness, identify application risks, track recommender and deadline gaps, and receive guided next-best actions through an AI mentor, risk radar, preparation roadmap, and one-page readiness report.
 
-View your app in AI Studio: https://ai.studio/apps/4d648d8d-3bdf-4067-b94d-19e4fba30a33
+## Key Features
 
-## Run Locally
+- Scholarship readiness scoring
+- Risk Radar for application risks
+- Recommender readiness tracking
+- Preparation roadmap
+- AI mentor guidance
+- One-page readiness report
+- Scholarship matching and fit insights
+- Final compliance scanner concept
 
-**Prerequisites:**  Node.js
+## Demo Profile
 
+The prototype uses Alya Putri as the demo student profile to show how readiness improves as key scholarship preparation steps are completed.
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Status
+
+This repository contains the current Kaggle submission snapshot of ScholarPath Sentinel. Further refinements are planned for stage-based scoring, final compliance scanning, and human-in-the-loop review flow.
