@@ -24,6 +24,25 @@ export interface StudentProfile {
   hasFinancialNeed: boolean;
   preferredIntakeYear: string;
   readinessScore: number;
+  recommenderStatus?: "Not Started" | "Requested" | "Confirmed" | "Submitted" | "Uploaded" | "Received";
+  deadlineTimelineStatus?: "not_started" | "in_progress" | "confirmed";
+  deadlineMilestonesConfirmed?: boolean;
+  complianceScanStatus?: "not_started" | "running" | "completed";
+  complianceScanCompleted?: boolean;
+  automatedComplianceChecksPassed?: boolean;
+  finalReviewStatus?: "not_started" | "in_progress" | "completed";
+  finalHumanReviewCompleted?: boolean;
+  finalHumanReviewDate?: string | null;
+  finalHumanReviewerType?: "Mentor" | "Teacher" | "Advisor" | "Peer Reviewer" | "Other" | null;
+  finalHumanReviewerName?: string | null;
+  finalHumanReviewChecklist?: {
+    scholarshipFitReviewed: boolean;
+    essayReviewed: boolean;
+    requiredDocumentsReviewed: boolean;
+    recommendationLettersReviewed: boolean;
+    deadlinePlanReviewed: boolean;
+    finalApplicationPackageReviewed: boolean;
+  };
 }
 
 export interface AppState {

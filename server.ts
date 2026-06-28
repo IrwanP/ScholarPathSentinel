@@ -1,353 +1,335 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
-import path from "path";
 import { GoogleGenAI } from "@google/genai";
-
 import { orchestratorAgent } from "./src/agents/orchestratorAgent";
 import type { StudentProfile } from "./src/types";
 
-type EnglishStatus = StudentProfile["englishStatus"];
+const PORT = Number(process.env.PORT || 3000);
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
-const VALID_ENGLISH_STATUS: EnglishStatus[] = [
-  "Not Taken",
-  "IELTS",
-  "TOEFL iBT",
-  "TOEFL iBT 2026",
-  "Duolingo",
-  "Other"
-];
+const DEFAULT_PROFILE: StudentProfile = {
+  name: "Irwan Prabowo",
+  origin: "Indonesia",
+  currentEducation: "Bachelor's",
+  targetDegree: "Master's",
+  targetCountries: ["UK", "USA", "Europe", "Australia", "Japan", "Singapore"],
+  fields: ["AI Strategy"],
+  gpa: 3.47,
+  englishStatus: "IELTS",
+  englishScore: "7.0",
+  profilePhotoUrl: undefined,
+  hasLeadership: true,
+  hasResearch: true,
+  hasCommunityImpact: true,
+  hasWorkExperience: true,
+  hasFinancialNeed: true,
+  preferredIntakeYear: String(new Date().getFullYear()),
+  readinessScore: 0,
+};
 
-function normalizeString(value: unknown): string {
-  return typeof value === "string" ? value.trim() : "";
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function normalizeStringArray(value: unknown): string[] {
+function text(value: unknown, fallback = ""): string {
+  const cleaned = String(value ?? "").replace(/\s+/g, " ").trim();
+  return cleaned || fallback;
+}
+
+function numberValue(value: unknown, fallback: number): number {
+  const parsed =
+    typeof value === "number"
+      ? value
+      : Number(String(value ?? "").replace(",", "."));
+
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function booleanValue(value: unknown, fallback: boolean): boolean {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") {
+    const normalized = value.toLowerCase().trim();
+    if (["true", "yes", "1"].includes(normalized)) return true;
+    if (["false", "no", "0"].includes(normalized)) return false;
+  }
+
+  return fallback;
+}
+
+function stringArray(value: unknown, fallback: string[]): string[] {
   if (Array.isArray(value)) {
-    return value.map((item) => normalizeString(item)).filter(Boolean);
+    const cleaned = value.map((item) => text(item)).filter(Boolean);
+    return cleaned.length ? cleaned : fallback;
   }
 
   if (typeof value === "string") {
-    return value
-      .split(",")
-      .map((item) => item.trim())
+    const cleaned = value
+      .split(/[,;|]/)
+      .map((item) => text(item))
       .filter(Boolean);
+
+    return cleaned.length ? cleaned : fallback;
   }
 
-  return [];
+  return fallback;
 }
 
-function normalizeNumber(value: unknown): number {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
+function normalizeEnglishStatus(value: unknown): StudentProfile["englishStatus"] {
+  const cleaned = text(value);
 
-  if (typeof value === "string") {
-    const parsedValue = Number(value.replace(",", ".").trim());
-    return Number.isFinite(parsedValue) ? parsedValue : 0;
-  }
+  const validStatuses: StudentProfile["englishStatus"][] = [
+    "Not Taken",
+    "IELTS",
+    "TOFL iBT" as StudentProfile["englishStatus"],
+    "TOEFL iBT",
+    "TOEFL iBT 2026",
+    "Duolingo",
+    "Other",
+  ].filter(Boolean);
 
-  return 0;
-}
+  const matched = validStatuses.find(
+    (status) => status.toLowerCase() === cleaned.toLowerCase()
+  );
 
-function normalizeBoolean(value: unknown): boolean {
-  return Boolean(value);
-}
-
-function normalizeEnglishStatus(value: unknown): EnglishStatus {
-  if (value === "TOEFL") {
+  if (matched === ("TOFL iBT" as StudentProfile["englishStatus"])) {
     return "TOEFL iBT";
   }
 
-  if (
-    typeof value === "string" &&
-    VALID_ENGLISH_STATUS.includes(value as EnglishStatus)
-  ) {
-    return value as EnglishStatus;
-  }
-
-  return "Not Taken";
+  return matched || DEFAULT_PROFILE.englishStatus;
 }
 
-function normalizeProfile(input: unknown): StudentProfile {
-  const profile =
-    input && typeof input === "object"
-      ? (input as Partial<StudentProfile>)
-      : {};
+function normalizePreferredIntakeYear(value: unknown): string {
+  const currentYear = new Date().getFullYear();
+  const parsed = Number(text(value));
+
+  if (!Number.isFinite(parsed) || parsed < currentYear) {
+    return String(currentYear);
+  }
+
+  return String(parsed);
+}
+
+function extractProfileCandidate(body: unknown): Record<string, unknown> | null {
+  if (!isObject(body)) return null;
+
+  const bodyObject = body as Record<string, unknown>;
+
+  const possibleProfile =
+    bodyObject.profile ||
+    bodyObject.studentProfile ||
+    bodyObject.currentProfile ||
+    bodyObject.userProfile ||
+    bodyObject.data ||
+    bodyObject;
+
+  if (isObject(possibleProfile)) {
+    return possibleProfile;
+  }
+
+  return null;
+}
+
+function normalizeStudentProfile(body: unknown): StudentProfile {
+  const candidate = extractProfileCandidate(body);
+
+  if (!candidate) {
+    return DEFAULT_PROFILE;
+  }
 
   return {
-    name: normalizeString(profile.name),
-    origin: normalizeString(profile.origin),
-    currentEducation: normalizeString(profile.currentEducation),
-    targetDegree: normalizeString(profile.targetDegree),
-    targetCountries: normalizeStringArray(profile.targetCountries),
-    fields: normalizeStringArray(profile.fields),
-    gpa: normalizeNumber(profile.gpa),
-    englishStatus: normalizeEnglishStatus(profile.englishStatus),
-    englishScore: normalizeString(profile.englishScore),
-    profilePhotoUrl: "",
-    hasLeadership: normalizeBoolean(profile.hasLeadership),
-    hasResearch: normalizeBoolean(profile.hasResearch),
-    hasCommunityImpact: normalizeBoolean(profile.hasCommunityImpact),
-    hasWorkExperience: normalizeBoolean(profile.hasWorkExperience),
-    hasFinancialNeed: normalizeBoolean(profile.hasFinancialNeed),
-    preferredIntakeYear:
-      normalizeString(profile.preferredIntakeYear) ||
-      String(new Date().getFullYear()),
-    readinessScore: normalizeNumber(profile.readinessScore)
+    name: text(candidate.name ?? candidate.fullName, DEFAULT_PROFILE.name),
+    origin: text(
+      candidate.origin ?? candidate.country ?? candidate.countryOfOrigin,
+      DEFAULT_PROFILE.origin
+    ),
+    currentEducation: text(
+      candidate.currentEducation ?? candidate.education,
+      DEFAULT_PROFILE.currentEducation
+    ),
+    targetDegree: text(
+      candidate.targetDegree ?? candidate.degree ?? candidate.degreeLevel,
+      DEFAULT_PROFILE.targetDegree
+    ),
+    targetCountries: stringArray(
+      candidate.targetCountries ?? candidate.countries,
+      DEFAULT_PROFILE.targetCountries
+    ),
+    fields: stringArray(
+      candidate.fields ?? candidate.fieldOfStudy ?? candidate.studyFields,
+      DEFAULT_PROFILE.fields
+    ),
+    gpa: numberValue(candidate.gpa ?? candidate.grade, DEFAULT_PROFILE.gpa),
+    englishStatus: normalizeEnglishStatus(
+      candidate.englishStatus ??
+      candidate.englishProficiency ??
+      candidate.englishTest
+    ),
+    englishScore: text(
+      candidate.englishScore ??
+      candidate.ieltsScore ??
+      candidate.toeflScore ??
+      candidate.duolingoScore,
+      DEFAULT_PROFILE.englishScore
+    ),
+    profilePhotoUrl:
+      text(candidate.profilePhotoUrl ?? candidate.photoUrl ?? candidate.avatarUrl) ||
+      undefined,
+    hasLeadership: booleanValue(
+      candidate.hasLeadership ?? candidate.leadership,
+      DEFAULT_PROFILE.hasLeadership
+    ),
+    hasResearch: booleanValue(
+      candidate.hasResearch ?? candidate.research,
+      DEFAULT_PROFILE.hasResearch
+    ),
+    hasCommunityImpact: booleanValue(
+      candidate.hasCommunityImpact ?? candidate.communityImpact,
+      DEFAULT_PROFILE.hasCommunityImpact
+    ),
+    hasWorkExperience: booleanValue(
+      candidate.hasWorkExperience ?? candidate.workExperience,
+      DEFAULT_PROFILE.hasWorkExperience
+    ),
+    hasFinancialNeed: booleanValue(
+      candidate.hasFinancialNeed ?? candidate.financialNeed,
+      DEFAULT_PROFILE.hasFinancialNeed
+    ),
+    preferredIntakeYear: normalizePreferredIntakeYear(
+      candidate.preferredIntakeYear ?? candidate.intakeYear
+    ),
+    recommenderStatus: (candidate.recommenderStatus as any) || "Not Started",
+    readinessScore: numberValue(candidate.readinessScore, 0),
   };
 }
 
-function createFallbackMentorSummary(result: {
-  readinessScore: number;
-  matches: unknown[];
-  roadmap: unknown[];
-}): string {
-  const topMatch =
-    Array.isArray(result.matches) && result.matches.length > 0
-      ? (result.matches[0] as {
-        name?: string;
-        provider?: string;
-        country?: string;
-      })
-      : null;
+function getGeminiApiKey(): string {
+  return (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.VITE_GEMINI_API_KEY ||
+    ""
+  );
+}
 
-  const nextActions = Array.isArray(result.roadmap)
-    ? result.roadmap
-      .slice(0, 3)
-      .map((step, index) => {
-        const roadmapStep = step as {
-          milestone?: string;
-          task?: string;
-        };
+async function addGeminiMentorNoteIfAvailable(
+  profile: StudentProfile,
+  result: any
+): Promise<{
+  result: any;
+  fallbackMode: boolean;
+  fallbackReason?: string;
+}> {
+  const apiKey = getGeminiApiKey();
 
-        return `${index + 1}. ${roadmapStep.milestone || "Next step"
-          }: ${roadmapStep.task || "Review your application plan."}`;
-      })
-      .join("\n")
-    : "1. Review your profile.\n2. Confirm scholarship eligibility.\n3. Prepare required documents.";
+  if (!apiKey) {
+    return {
+      result,
+      fallbackMode: true,
+      fallbackReason:
+        "GEMINI_API_KEY is not configured, so Sentinel returned deterministic multi-agent results with fallback guidance.",
+    };
+  }
 
-  return `Overall readiness: ${result.readinessScore}%.
+  try {
+    const ai = new GoogleGenAI({ apiKey });
 
-Best scholarship direction:
-${topMatch
-      ? `${topMatch.name || "Top scholarship match"} from ${topMatch.provider || "the provider"
-      } in ${topMatch.country || "your target country"}.`
-      : "No top scholarship match was generated yet. Refine your target country, degree, and field of study."
+    const prompt = `
+You are ScholarPath Sentinel, a scholarship readiness mentor.
+
+Create a concise mentor note for this student profile and Sentinel result.
+Do not fabricate official eligibility.
+Remind the student to verify official scholarship requirements.
+
+Student profile:
+${JSON.stringify(profile, null, 2)}
+
+Sentinel result:
+${JSON.stringify(result, null, 2)}
+`;
+
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+
+    const geminiText =
+      typeof (response as any).text === "function"
+        ? (response as any).text()
+        : (response as any).text;
+
+    if (geminiText && typeof geminiText === "string") {
+      result.mentorSummary = `${result.mentorSummary || ""}
+
+Gemini mentor note:
+${geminiText.trim()}`.trim();
     }
 
-Top 3 next actions:
-${nextActions}
-
-Main risk to watch:
-Always verify eligibility, deadlines, and document requirements from the official scholarship website. Do not rely only on AI-generated guidance.`;
+    return {
+      result,
+      fallbackMode: false,
+    };
+  } catch (error) {
+    return {
+      result,
+      fallbackMode: true,
+      fallbackReason:
+        "Gemini API call failed, so Sentinel returned deterministic multi-agent results with fallback guidance.",
+    };
+  }
 }
 
 async function startServer() {
   const app = express();
-  const PORT = Number(process.env.PORT || 3000);
 
-  app.use(express.json({ limit: "10mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+  app.use(express.json({ limit: "5mb" }));
 
   app.get("/api/sentinel/health", (_req, res) => {
-    return res.json({
+    res.json({
       ok: true,
       service: "ScholarPath Sentinel API",
-      endpoint: "/api/sentinel/analyze"
+      endpoint: "/api/sentinel/analyze",
     });
   });
 
   app.post("/api/sentinel/analyze", async (req, res) => {
     try {
-      const rawProfile = req.body?.profile;
+      const profile = normalizeStudentProfile(req.body);
 
-      if (!rawProfile) {
-        return res.status(400).json({
-          error: "Missing profile payload."
-        });
-      }
+      const result = orchestratorAgent(profile);
 
-      const profile = normalizeProfile(rawProfile);
-      const deterministicResult = orchestratorAgent(profile);
+      const enriched = await addGeminiMentorNoteIfAvailable(profile, result);
 
-      let mentorSummary = createFallbackMentorSummary(deterministicResult);
-      let mentorSummarySource = "deterministic-fallback";
-      let geminiWarning = "";
-
-      const apiKey = process.env.GEMINI_API_KEY;
-
-      if (apiKey) {
-        try {
-          const ai = new GoogleGenAI({ apiKey });
-
-          const prompt = `
-You are ScholarPath Sentinel, a multi-agent scholarship readiness mentor.
-
-Use the deterministic agent outputs below.
-Do not invent deadlines.
-Do not fabricate achievements.
-Tell the learner to verify official scholarship sources.
-Give concise, practical, encouraging guidance.
-
-PROFILE:
-${JSON.stringify(deterministicResult.sanitizedProfile, null, 2)}
-
-READINESS SCORE:
-${deterministicResult.readinessScore}%
-
-TOP SCHOLARSHIP MATCHES:
-${JSON.stringify(deterministicResult.matches, null, 2)}
-
-ROADMAP:
-${JSON.stringify(deterministicResult.roadmap, null, 2)}
-
-ESSAY FEEDBACK:
-${JSON.stringify(deterministicResult.essayFeedback, null, 2)}
-
-Write a short mentor summary with:
-1. Overall readiness interpretation
-2. Best scholarship direction
-3. Top 3 next actions
-4. Main risk to watch
-`;
-
-          const response = await ai.models.generateContent({
-            model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-            contents: prompt
-          });
-
-          mentorSummary = response.text || mentorSummary;
-          mentorSummarySource = "gemini";
-        } catch (geminiError) {
-          console.warn("Gemini mentor summary fallback used:", geminiError);
-          geminiWarning =
-            "Gemini mentor summary failed, so Sentinel returned deterministic multi-agent results with fallback guidance.";
-        }
-      } else {
-        geminiWarning =
-          "GEMINI_API_KEY is not configured, so Sentinel returned deterministic multi-agent results with fallback guidance.";
-      }
-
-      return res.json({
-        ...deterministicResult,
-        mentorSummary,
-        mentorSummarySource,
-        geminiWarning
+      res.json({
+        ok: true,
+        fallbackMode: enriched.fallbackMode,
+        fallbackReason: enriched.fallbackReason,
+        result: enriched.result,
       });
     } catch (error) {
-      console.error("Sentinel analysis error:", error);
-
-      return res.status(500).json({
-        error: "Sentinel analysis failed on the backend.",
-        details:
-          error instanceof Error ? error.message : "Unknown backend error."
+      res.status(500).json({
+        ok: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Unknown Sentinel analysis error.",
       });
     }
   });
 
-  app.post("/api/mentor-chat", async (req, res) => {
-    try {
-      const { message, context } = req.body;
-      const apiKey = process.env.GEMINI_API_KEY;
-
-      if (!apiKey) {
-        return res.json({
-          reply:
-            "Gemini API key is missing. Using rule-based fallback. Please verify official scholarship sources before submission."
-        });
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
-
-      const prompt = `
-You are a scholarship mentor.
-You help students navigate their scholarship journey.
-Your tone is professional, encouraging, and concise.
-
-STUDENT PROFILE:
-Name: ${context?.profile?.name || "Student"}
-Degree: ${context?.profile?.targetDegree || "Not specified"}
-GPA: ${context?.profile?.gpa || "Not specified"}
-English: ${context?.profile?.englishStatus || "Not specified"}
-Readiness: ${context?.readinessScore || "Not calculated"}%
-
-ACTIVE SCHOLARSHIP:
-${context?.activeScholarship?.name || "None"}
-
-CONTEXT:
-The student is using ScholarPath Sentinel.
-- Do not invent deadlines.
-- Tell them to verify official sources.
-- Focus on evidence gaps and next actions.
-
-CHAT HISTORY:
-${context?.history
-          ?.map(
-            (m: { role: string; content: string }) =>
-              `${m.role.toUpperCase()}: ${m.content}`
-          )
-          .join("\n") || ""
-        }
-
-USER MESSAGE:
-${message}
-`;
-
-      const response = await ai.models.generateContent({
-        model: process.env.GEMINI_MODEL || "gemini-2.5-flash",
-        contents: prompt
-      });
-
-      return res.json({
-        reply:
-          response.text ||
-          "I could not generate a response. Please verify official scholarship sources and try again."
-      });
-    } catch (error) {
-      console.error("Gemini API Error:", error);
-
-      return res.json({
-        reply:
-          "The AI mentor is temporarily unavailable. You can still continue by reviewing scholarship eligibility, required documents, and official deadlines."
-      });
-    }
+  const vite = await createViteServer({
+    server: {
+      middlewareMode: true,
+    },
+    appType: "spa",
   });
 
-  app.use("/api", (req, res) => {
-    return res.status(404).json({
-      error: "API route not found.",
-      method: req.method,
-      path: req.originalUrl,
-      availableRoutes: [
-        "GET /api/sentinel/health",
-        "POST /api/sentinel/analyze",
-        "POST /api/mentor-chat"
-      ]
-    });
-  });
-
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: {
-        middlewareMode: true
-      },
-      appType: "spa"
-    });
-
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-
-    app.use(express.static(distPath));
-
-    app.use((_req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
-  }
+  app.use(vite.middlewares);
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Sentinel API health: http://localhost:${PORT}/api/sentinel/health`);
+    console.log(
+      `Sentinel API health: http://localhost:${PORT}/api/sentinel/health`
+    );
   });
 }
 

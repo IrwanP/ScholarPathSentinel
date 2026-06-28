@@ -1,12 +1,16 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { ProfileMode, StudentProfile, AppState } from "../types";
 import { demoStudent } from "../data/demoData";
+import { calculateReadiness as calcReadiness } from "../agents/readinessAgent";
+import { getSentinelAnalysis, SentinelAnalysisResult } from "../utils/sentinelAnalysis";
 
 interface ProfileContextType {
   mode: ProfileMode;
   profile: StudentProfile | null;
   savedScholarshipIds: string[];
   activeScholarshipId: string | null;
+  sentinelResult: SentinelAnalysisResult | null;
+  updateSentinelResult: (result: any) => void;
   setDemoMode: () => void;
   setCustomProfile: (profile: StudentProfile) => void;
   clearProfile: () => void;
@@ -26,6 +30,7 @@ const STORAGE_KEYS = {
   MODE: "scholarpath_profile_mode",
   SAVED_IDS: "scholarpath_saved_scholarships",
   ACTIVE_ID: "scholarpath_active_scholarship",
+  SENTINEL_RESULT: "scholarpath_sentinel_result",
 };
 
 export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -33,6 +38,7 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [savedScholarshipIds, setSavedScholarshipIds] = useState<string[]>([]);
   const [activeScholarshipId, setActiveScholarshipId] = useState<string | null>(null);
+  const [sentinelResult, setSentinelResult] = useState<SentinelAnalysisResult | null>(null);
   const [isProfileFormOpen, setIsProfileFormOpen] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -41,22 +47,121 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const savedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
     const savedIds = localStorage.getItem(STORAGE_KEYS.SAVED_IDS);
     const savedActiveId = localStorage.getItem(STORAGE_KEYS.ACTIVE_ID);
+    const savedResult = localStorage.getItem(STORAGE_KEYS.SENTINEL_RESULT);
 
     if (savedMode === "demo") {
       setMode("demo");
-      setProfile(demoStudent as unknown as StudentProfile);
-      setSavedScholarshipIds(["chevening", "erasmus-mundus"]);
-      setActiveScholarshipId("chevening");
+      const tempDemo: StudentProfile = {
+        ...demoStudent,
+        currentEducation: "Bachelor’s Degree",
+        englishStatus: "IELTS",
+        englishScore: "7.5",
+        profilePhotoUrl: "/demo/alya-putri-profile.jpg",
+        hasLeadership: true,
+        hasResearch: true,
+        hasCommunityImpact: true,
+        hasWorkExperience: true,
+        hasFinancialNeed: false,
+        preferredIntakeYear: "2026",
+        recommenderStatus: "Requested",
+        deadlineTimelineStatus: "in_progress",
+        deadlineMilestonesConfirmed: false,
+        complianceScanStatus: "not_started",
+        complianceScanCompleted: false,
+        automatedComplianceChecksPassed: false,
+        finalReviewStatus: "not_started",
+        finalHumanReviewCompleted: false,
+        finalHumanReviewDate: null,
+        finalHumanReviewerType: null,
+        finalHumanReviewerName: null,
+        finalHumanReviewChecklist: {
+          scholarshipFitReviewed: false,
+          essayReviewed: false,
+          requiredDocumentsReviewed: false,
+          recommendationLettersReviewed: false,
+          deadlinePlanReviewed: false,
+          finalApplicationPackageReviewed: false
+        },
+        readinessScore: 0,
+      };
+      const baseDemo = {
+        ...tempDemo,
+        readinessScore: calcReadiness(tempDemo)
+      };
+
+      let currentDemo = baseDemo;
+      if (savedProfile) {
+        try {
+          const parsed = JSON.parse(savedProfile);
+          currentDemo = {
+            ...baseDemo,
+            ...parsed,
+            profilePhotoUrl: "/demo/alya-putri-profile.jpg"
+          };
+        } catch (e) {
+          // ignore
+        }
+      }
+      setProfile(currentDemo);
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(currentDemo));
+
+      if (savedResult) {
+        try {
+          const parsed = JSON.parse(savedResult);
+          const alignedResult = getSentinelAnalysis(currentDemo, parsed);
+          setSentinelResult(alignedResult);
+          localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(alignedResult));
+        } catch (e) {
+          const initialResult = getSentinelAnalysis(currentDemo);
+          setSentinelResult(initialResult);
+          localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(initialResult));
+        }
+      } else {
+        const initialResult = getSentinelAnalysis(currentDemo);
+        setSentinelResult(initialResult);
+        localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(initialResult));
+      }
+
+      if (savedIds) {
+        setSavedScholarshipIds(JSON.parse(savedIds));
+      } else {
+        setSavedScholarshipIds(["chevening", "erasmus-mundus"]);
+      }
+
+      if (savedActiveId) {
+        setActiveScholarshipId(savedActiveId);
+      } else {
+        setActiveScholarshipId("chevening");
+      }
     } else if (savedMode === "custom" && savedProfile) {
       setMode("custom");
-      setProfile(JSON.parse(savedProfile));
+      const parsedProfile = JSON.parse(savedProfile);
+      setProfile(parsedProfile);
       if (savedIds) setSavedScholarshipIds(JSON.parse(savedIds));
       if (savedActiveId) setActiveScholarshipId(savedActiveId);
+
+      if (savedResult) {
+        try {
+          const parsed = JSON.parse(savedResult);
+          const alignedResult = getSentinelAnalysis(parsedProfile, parsed);
+          setSentinelResult(alignedResult);
+          localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(alignedResult));
+        } catch (e) {
+          const initialResult = getSentinelAnalysis(parsedProfile);
+          setSentinelResult(initialResult);
+          localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(initialResult));
+        }
+      } else {
+        const initialResult = getSentinelAnalysis(parsedProfile);
+        setSentinelResult(initialResult);
+        localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(initialResult));
+      }
     } else {
       setMode("empty");
       setProfile(null);
       setSavedScholarshipIds([]);
       setActiveScholarshipId(null);
+      setSentinelResult(null);
     }
   }, []);
 
@@ -66,45 +171,73 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   };
 
   const calculateReadiness = (p: StudentProfile): number => {
-    let score = 0;
-    // GPA
-    if (p.gpa >= 3.7) score += 20;
-    else if (p.gpa >= 3.3) score += 15;
-    else if (p.gpa >= 3.0) score += 10;
+    return calcReadiness(p);
+  };
 
-    // English
-    if (p.englishStatus !== "Not Taken" && p.englishScore) score += 20;
-
-    // Experiences
-    if (p.hasLeadership) score += 15;
-    if (p.hasResearch) score += 10;
-    if (p.hasCommunityImpact) score += 10;
-    
-    // Planning
-    if (p.targetDegree && p.targetCountries.length > 0) score += 15;
-
-    return Math.min(score, 100);
+  const updateSentinelResult = (result: any) => {
+    if (profile) {
+      const normalizedResult = getSentinelAnalysis(profile, result);
+      setSentinelResult(normalizedResult);
+      localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(normalizedResult));
+      
+      // Keep profile readiness score in sync with result score
+      if (profile.readinessScore !== normalizedResult.readinessScore) {
+        const updatedProfile = { ...profile, readinessScore: normalizedResult.readinessScore };
+        setProfile(updatedProfile);
+        localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(updatedProfile));
+      }
+    }
   };
 
   const setDemoMode = () => {
     setMode("demo");
-    const demo = {
+    const tempDemo: StudentProfile = {
       ...demoStudent,
-      currentEducation: "Bachelor's",
+      currentEducation: "Bachelor’s Degree",
       englishStatus: "IELTS",
-      englishScore: "7.0",
+      englishScore: "7.5",
+      profilePhotoUrl: "/demo/alya-putri-profile.jpg",
       hasLeadership: true,
       hasResearch: true,
       hasCommunityImpact: true,
       hasWorkExperience: true,
       hasFinancialNeed: false,
-      preferredIntakeYear: "2025",
-      readinessScore: 82,
-    } as unknown as StudentProfile;
+      preferredIntakeYear: "2026",
+      recommenderStatus: "Requested",
+      deadlineTimelineStatus: "in_progress",
+      deadlineMilestonesConfirmed: false,
+      complianceScanStatus: "not_started",
+      complianceScanCompleted: false,
+      automatedComplianceChecksPassed: false,
+      finalReviewStatus: "not_started",
+      finalHumanReviewCompleted: false,
+      finalHumanReviewDate: null,
+      finalHumanReviewerType: null,
+      finalHumanReviewerName: null,
+      finalHumanReviewChecklist: {
+        scholarshipFitReviewed: false,
+        essayReviewed: false,
+        requiredDocumentsReviewed: false,
+        recommendationLettersReviewed: false,
+        deadlinePlanReviewed: false,
+        finalApplicationPackageReviewed: false
+      },
+      readinessScore: 0,
+    };
+    const demo = {
+      ...tempDemo,
+      readinessScore: calcReadiness(tempDemo)
+    };
     setProfile(demo);
+    
+    const result = getSentinelAnalysis(demo);
+    setSentinelResult(result);
+
     setSavedScholarshipIds(["chevening", "erasmus-mundus"]);
     setActiveScholarshipId("chevening");
     localStorage.setItem(STORAGE_KEYS.MODE, "demo");
+    localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(demo));
+    localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(result));
     localStorage.setItem(STORAGE_KEYS.SAVED_IDS, JSON.stringify(["chevening", "erasmus-mundus"]));
     localStorage.setItem(STORAGE_KEYS.ACTIVE_ID, "chevening");
   };
@@ -112,10 +245,16 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const setCustomProfile = (newProfile: StudentProfile) => {
     const readiness = calculateReadiness(newProfile);
     const profileWithScore = { ...newProfile, readinessScore: readiness };
-    setMode("custom");
+    const nextMode = mode === "empty" ? "custom" : mode;
+    setMode(nextMode);
     setProfile(profileWithScore);
-    localStorage.setItem(STORAGE_KEYS.MODE, "custom");
+
+    const result = getSentinelAnalysis(profileWithScore);
+    setSentinelResult(result);
+
+    localStorage.setItem(STORAGE_KEYS.MODE, nextMode);
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profileWithScore));
+    localStorage.setItem(STORAGE_KEYS.SENTINEL_RESULT, JSON.stringify(result));
     setIsProfileFormOpen(false);
   };
 
@@ -124,10 +263,12 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setProfile(null);
     setSavedScholarshipIds([]);
     setActiveScholarshipId(null);
+    setSentinelResult(null);
     localStorage.removeItem(STORAGE_KEYS.MODE);
     localStorage.removeItem(STORAGE_KEYS.PROFILE);
     localStorage.removeItem(STORAGE_KEYS.SAVED_IDS);
     localStorage.removeItem(STORAGE_KEYS.ACTIVE_ID);
+    localStorage.removeItem(STORAGE_KEYS.SENTINEL_RESULT);
   };
 
   const toggleSaveScholarship = (id: string, name?: string) => {
@@ -189,6 +330,8 @@ export const ProfileProvider: React.FC<{ children: React.ReactNode }> = ({ child
         profile, 
         savedScholarshipIds,
         activeScholarshipId,
+        sentinelResult,
+        updateSentinelResult,
         setDemoMode, 
         setCustomProfile, 
         clearProfile,

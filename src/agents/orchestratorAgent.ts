@@ -29,6 +29,7 @@ export interface SentinelOrchestrationResult {
     matches: unknown[];
     roadmap: unknown[];
     essayFeedback: unknown;
+    risks: any;
     agentTrace: AgentTrace[];
 }
 
@@ -73,6 +74,7 @@ export function orchestratorAgent(profile: StudentProfile): SentinelOrchestratio
         matches: matcher.matches,
         roadmap: roadmap.roadmap,
         essayFeedback: essay.essayFeedback,
+        risks: readiness.risks,
         agentTrace
     };
 }

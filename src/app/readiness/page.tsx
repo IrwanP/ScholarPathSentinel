@@ -15,9 +15,10 @@ import {
 } from "lucide-react";
 import { useProfile } from "../../context/ProfileContext";
 import { cn } from "../../lib/utils";
+import { getActiveAnalysis } from "../../utils/sentinelAnalysis";
 
 export default function ReadinessPage() {
-  const { mode, profile, setIsProfileFormOpen } = useProfile();
+  const { mode, profile, setIsProfileFormOpen, sentinelResult } = useProfile();
 
   if (mode === "empty") {
     return (
@@ -47,34 +48,25 @@ export default function ReadinessPage() {
     );
   }
 
-  const generateDimensions = () => {
-    if (mode === "demo") return [
-      { name: "Academic Strength", score: 90, status: "Strong" },
-      { name: "English Readiness", score: 85, status: "Strong" },
-      { name: "Leadership Evidence", score: 88, status: "Strong" },
-      { name: "Community Impact", score: 82, status: "Strong" },
-      { name: "Research Potential", score: 75, status: "Moderate" },
-      { name: "Career Clarity", score: 70, status: "Moderate" },
-      { name: "Document Readiness", score: 38, status: "Needs Attention" },
-      { name: "Essay Readiness", score: 45, status: "Needs Attention" },
-    ];
-
-    if (!profile) return [];
-
-    return [
-      { name: "Academic Strength", score: profile.gpa >= 3.5 ? 90 : profile.gpa >= 3.0 ? 75 : 50, status: profile.gpa >= 3.5 ? "Strong" : "Moderate" },
-      { name: "English Readiness", score: profile.englishStatus !== "Not Taken" ? 85 : 10, status: profile.englishStatus !== "Not Taken" ? "Strong" : "Needs Attention" },
-      { name: "Leadership Evidence", score: profile.hasLeadership ? 88 : 30, status: profile.hasLeadership ? "Strong" : "Needs Attention" },
-      { name: "Community Impact", score: profile.hasCommunityImpact ? 82 : 25, status: profile.hasCommunityImpact ? "Strong" : "Needs Attention" },
-      { name: "Research Potential", score: profile.hasResearch ? 75 : 20, status: profile.hasResearch ? "Moderate" : "Needs Attention" },
-      { name: "Work Experience", score: profile.hasWorkExperience ? 80 : 40, status: profile.hasWorkExperience ? "Strong" : "Moderate" },
-      { name: "Planning Depth", score: profile.targetCountries.length > 0 ? 80 : 30, status: profile.targetCountries.length > 0 ? "Strong" : "Needs Attention" },
-      { name: "Financial Positioning", score: profile.hasFinancialNeed ? 90 : 50, status: "Ready" },
-    ];
+  const analysis = getActiveAnalysis(profile, sentinelResult);
+  const readinessDimensions = analysis?.readinessDimensions ?? [];
+  const readiness = analysis?.readinessScore ?? 0;
+  
+  const overallWhy = analysis?.overallReadinessWhy ?? "";
+  const overallReasoning = analysis?.overallReadinessReasoning ?? "";
+  
+  const nextAction = analysis?.nextBestActionNew ?? {
+    title: "Secure recommender readiness",
+    whyItMatters: "Recommendation letters are not fully secured yet and this is the largest blocker to submission readiness.",
+    relatedRisk: "Recommender Risk: High, 80%",
+    potentialImpact: "+8 to +12 readiness points",
+    reasoning: "This is the highest-leverage action because recommendation letters often take time to prepare and can block final submission readiness.",
+    ctaText: "Create recommender request",
+    ctaPath: "/preparation?tab=roadmap"
   };
 
-  const readinessDimensions = generateDimensions();
-  const readiness = profile?.readinessScore || 0;
+  const strengths = analysis?.evidenceGaps?.strengths ?? ["Academic readiness", "English readiness", "Leadership evidence", "Community impact"];
+  const needsAttentionList = analysis?.needsAttentionNew ?? [];
 
   return (
     <div className="space-y-8 pb-12">
@@ -99,16 +91,17 @@ export default function ReadinessPage() {
         <div className="lg:col-span-2 space-y-6">
           <div className="bg-white rounded-2xl p-6 border border-border-subtle shadow-sm">
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-bold text-text-main">Overall Readiness</h2>
+              <h2 className="text-xl font-bold text-[#0F172A]">Overall Readiness</h2>
               <div className="flex items-center gap-2">
-                <span className="text-4xl font-black text-google-blue">{readiness}%</span>
+                <span className="text-4xl font-black text-blue-600">{readiness}%</span>
                 <span className={cn(
-                  "text-xs font-bold px-2 py-1 rounded",
-                  readiness >= 80 ? "text-google-green bg-google-green-light" : 
-                  readiness >= 60 ? "text-google-yellow bg-google-yellow-light" : 
-                  "text-google-red bg-red-50"
+                  "text-xs font-bold px-2.5 py-1 rounded-md border uppercase tracking-wide",
+                  analysis?.readinessColor === "green" ? "text-emerald-700 bg-emerald-50 border-emerald-100" :
+                  analysis?.readinessColor === "yellow" ? "text-amber-700 bg-amber-50 border-amber-100" :
+                  analysis?.readinessColor === "amber" ? "text-amber-800 bg-amber-50/50 border-amber-250" :
+                  "text-rose-700 bg-rose-50 border-rose-100"
                 )}>
-                  {readiness >= 80 ? "High" : readiness >= 60 ? "Moderate" : "Action Required"}
+                  {analysis?.readinessStatus}
                 </span>
               </div>
             </div>
@@ -120,7 +113,10 @@ export default function ReadinessPage() {
                     <span className="font-bold text-text-main">{dim.name}</span>
                     <span className={cn(
                       "font-black",
-                      dim.score >= 80 ? "text-google-green" : dim.score >= 60 ? "text-google-yellow" : "text-google-red"
+                      dim.score >= 80 ? "text-google-green" :
+                      dim.score >= 70 ? "text-google-yellow" :
+                      dim.score >= 40 ? "text-amber-700" :
+                      "text-google-red"
                     )}>{dim.score}%</span>
                   </div>
                   <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
@@ -130,13 +126,32 @@ export default function ReadinessPage() {
                       transition={{ duration: 1, ease: "easeOut" }}
                       className={cn(
                         "h-full rounded-full transition-colors",
-                        dim.score >= 80 ? "bg-google-green" : dim.score >= 60 ? "bg-google-yellow" : "bg-google-red"
+                        dim.score >= 80 ? "bg-google-green" :
+                        dim.score >= 70 ? "bg-google-yellow" :
+                        dim.score >= 40 ? "bg-amber-500" :
+                        "bg-google-red"
                       )}
                     />
                   </div>
                 </div>
               ))}
             </div>
+
+            {/* Why capped / score explanation */}
+            {analysis && (
+              <div className="mt-8 p-6 rounded-2xl bg-amber-50/30 border border-amber-100/60 text-xs text-slate-700 space-y-4 animate-fade-in">
+                <div>
+                  <span className="font-extrabold text-amber-900 block text-sm mb-1">Why {readiness}% Overall Readiness?</span>
+                  <p className="leading-relaxed font-semibold text-slate-800">{analysis.overallReadinessReasoning}</p>
+                </div>
+                
+                <div className="border-t border-slate-200/60 pt-3 space-y-2 font-bold">
+                  <p className="text-blue-700 text-[12px]">{analysis.improvementExplanation}</p>
+                  <p className="text-emerald-700 text-[12px]">{analysis.potentialImprovementCopy}</p>
+                  <p className="text-slate-500 italic leading-relaxed text-[11px] font-semibold">{analysis.howToReachGreenCopy}</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -186,22 +201,46 @@ export default function ReadinessPage() {
             </div>
           </div>
 
-          <div className="bg-google-blue rounded-2xl p-6 text-white shadow-md shadow-google-blue/10">
-            <h3 className="text-sm font-bold mb-4 flex items-center gap-2 uppercase tracking-widest">
+          <div className="bg-google-blue rounded-3xl p-6 text-white shadow-md shadow-google-blue/10 space-y-4">
+            <h3 className="text-sm font-bold flex items-center gap-2 uppercase tracking-widest text-blue-100">
               <CheckCircle2 className="h-4 w-4" />
               Next Best Action
             </h3>
-            <p className="text-xs text-blue-100 mb-6 leading-relaxed">
-              Contact two recommenders and shortlist three target programs this week to maintain your application momentum.
-            </p>
-            <div className="space-y-2">
-              <Link to="/scholarships" className="flex items-center justify-between w-full p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors font-bold text-xs">
-                View Matches
-                <ChevronRight className="h-3.5 w-3.5" />
-              </Link>
-              <Link to="/preparation" className="flex items-center justify-between w-full p-2.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors font-bold text-xs">
-                Go to Preparation
-                <ChevronRight className="h-3.5 w-3.5" />
+            
+            <div className="space-y-4">
+              <div>
+                <span className="text-[9px] font-bold text-blue-200 uppercase tracking-wider block">Action Goal</span>
+                <h4 className="text-base font-extrabold text-white leading-snug mt-0.5">{nextAction.title}</h4>
+              </div>
+              
+              <div>
+                <span className="text-[9px] font-bold text-blue-200 uppercase tracking-wider block">Why it matters</span>
+                <p className="text-xs text-blue-100 leading-relaxed mt-0.5">{nextAction.whyItMatters}</p>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <span className="text-[9px] font-bold text-blue-200 uppercase tracking-wider block">Related Risk</span>
+                  <span className="text-xs font-black text-white">{nextAction.relatedRisk}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] font-bold text-blue-200 uppercase tracking-wider block">Potential Impact</span>
+                  <span className="text-xs font-black text-emerald-300 font-extrabold">{nextAction.potentialImpact}</span>
+                </div>
+              </div>
+              
+              <p className="text-[10px] text-blue-200 italic leading-relaxed pt-3 border-t border-white/10">
+                {nextAction.reasoning}
+              </p>
+            </div>
+
+            <div className="mt-4 pt-2">
+              <Link 
+                to={nextAction.ctaPath} 
+                className="flex items-center justify-center w-full py-3 bg-white text-google-blue hover:bg-blue-50 rounded-xl transition-all font-extrabold text-xs shadow-md cursor-pointer"
+              >
+                {nextAction.ctaText}
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
               </Link>
             </div>
           </div>
@@ -212,24 +251,53 @@ export default function ReadinessPage() {
         <div className="bg-google-green-light/50 rounded-2xl p-6 border border-google-green-light">
           <h3 className="text-google-green-text font-bold mb-4 text-sm uppercase tracking-widest">Strongest Areas</h3>
           <ul className="space-y-3">
-            {["Academic readiness", "English readiness", "Leadership evidence", "Community impact"].map(item => (
+            {strengths.map(item => (
               <li key={item} className="flex items-center gap-3 text-sm font-medium text-text-main">
-                <CheckCircle2 className="h-4 w-4 text-google-green" />
-                {item}
+                <CheckCircle2 className="h-4 w-4 text-google-green shrink-0" />
+                <span>{item}</span>
               </li>
             ))}
           </ul>
         </div>
-        <div className="bg-red-50/50 rounded-2xl p-6 border border-red-100">
-          <h3 className="text-google-red font-bold mb-4 text-sm uppercase tracking-widest">Needs Attention</h3>
-          <ul className="space-y-3">
-            {["Essay differentiation", "Recommendation letters", "Program shortlist", "Career impact story"].map(item => (
-              <li key={item} className="flex items-center gap-3 text-sm font-medium text-text-main">
-                <AlertCircle className="h-4 w-4 text-google-red" />
-                {item}
-              </li>
-            ))}
-          </ul>
+        
+        <div className="bg-rose-50/30 rounded-3xl p-6 border border-rose-100/50 shadow-sm space-y-4">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-[#991B1B] font-extrabold text-sm uppercase tracking-widest">Needs Attention</h3>
+            <span className="text-[10px] text-[#991B1B]/70 font-bold">Ranked by Priority</span>
+          </div>
+          
+          <div className="space-y-4">
+            {needsAttentionList.map(item => {
+              const isHigh = item.priority === "High";
+              return (
+                <div key={item.name} className="p-4 bg-white border border-rose-100/60 rounded-2xl shadow-sm flex flex-col justify-between gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-extrabold text-slate-900 text-sm leading-snug">{item.name}</h4>
+                      <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">{item.reason}</p>
+                    </div>
+                    <span className={cn(
+                      "px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border shrink-0",
+                      isHigh ? "text-rose-700 bg-rose-50 border-rose-200" : "text-amber-700 bg-amber-50 border-amber-200"
+                    )}>
+                      {item.priority} Priority
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-50 text-[10px] text-slate-400 font-semibold">
+                    <div>
+                      <span className="block uppercase tracking-wide text-[9px]">Dimension Score</span>
+                      <span className="text-xs font-black text-slate-700">{item.dimensionScore}%</span>
+                    </div>
+                    <div>
+                      <span className="block uppercase tracking-wide text-[9px]">Related Risk</span>
+                      <span className="text-xs font-black text-rose-600">{item.riskValue}%</span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
     </div>

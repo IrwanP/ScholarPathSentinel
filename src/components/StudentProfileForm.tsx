@@ -171,12 +171,31 @@ export default function StudentProfileForm() {
 
   const [formData, setFormData] = useState<StudentProfile>(emptyProfile);
   const [fieldsText, setFieldsText] = useState("");
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
+    setImageError(false);
+  }, [formData.profilePhotoUrl]);
+
+  useEffect(() => {
+    setPhotoError(null);
+    setIsProcessingPhoto(false);
     if (profile) {
+      let currEdu = profile.currentEducation || "";
+      if (currEdu === "Bachelor's" || currEdu === "Bachelor’s") {
+        currEdu = "Bachelor’s Degree";
+      } else if (currEdu === "Master's" || currEdu === "Master’s") {
+        currEdu = "Master’s Degree";
+      } else if (currEdu === "PhD" || currEdu === "Doctoral") {
+        currEdu = "Doctoral / PhD";
+      }
+
       const normalizedProfile: StudentProfile = {
         ...emptyProfile,
         ...profile,
+        currentEducation: currEdu,
         englishStatus: normalizeEnglishStatus(profile.englishStatus),
         profilePhotoUrl: profile.profilePhotoUrl || "",
         preferredIntakeYear: normalizeIntakeYear(profile.preferredIntakeYear)
@@ -222,31 +241,86 @@ export default function StudentProfileForm() {
     }));
   };
 
+  const compressProfileImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const validTypes = ["image/jpeg", "image/png", "image/webp"];
+      if (!validTypes.includes(file.type)) {
+        reject(new Error("Please upload a JPG, PNG, or WebP image."));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+              reject(new Error("Failed to get 2D context."));
+              return;
+            }
+
+            // Fill background with white
+            ctx.fillStyle = "#FFFFFF";
+            ctx.fillRect(0, 0, 512, 512);
+
+            // Center-crop logic
+            const size = Math.min(img.width, img.height);
+            const sx = (img.width - size) / 2;
+            const sy = (img.height - size) / 2;
+
+            ctx.drawImage(img, sx, sy, size, size, 0, 0, 512, 512);
+
+            const format = file.type === "image/webp" ? "image/webp" : "image/jpeg";
+            const dataUrl = canvas.toDataURL(format, 0.85);
+
+            if (dataUrl.length > 1.5 * 1024 * 1024) {
+              reject(new Error("Compressed image exceeds 1.5 MB. Please try another image."));
+            } else {
+              resolve(dataUrl);
+            }
+          } catch (err) {
+            reject(new Error("Error compressing image."));
+          }
+        };
+        img.onerror = () => {
+          reject(new Error("Invalid image content."));
+        };
+        img.src = String(e.target?.result || "");
+      };
+      reader.onerror = () => {
+        reject(new Error("Error reading image file."));
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
 
     if (!file) return;
 
-    if (!file.type.startsWith("image/")) {
-      alert("Please upload an image file.");
-      return;
-    }
+    setPhotoError(null);
+    setIsProcessingPhoto(true);
 
-    if (file.size > 1.5 * 1024 * 1024) {
-      alert("Please use an image below 1.5 MB so it can be stored locally.");
-      return;
-    }
-
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      setFormData((prev) => ({
-        ...prev,
-        profilePhotoUrl: String(reader.result || "")
-      }));
-    };
-
-    reader.readAsDataURL(file);
+    compressProfileImage(file)
+      .then((compressedUrl) => {
+        setFormData((prev) => ({
+          ...prev,
+          profilePhotoUrl: compressedUrl
+        }));
+      })
+      .catch((err) => {
+        setPhotoError(err?.message || "Failed to process photo.");
+      })
+      .finally(() => {
+        setIsProcessingPhoto(false);
+        // Clear input value so same file can be uploaded again if needed
+        event.target.value = "";
+      });
   };
 
   const removePhoto = () => {
@@ -254,6 +328,7 @@ export default function StudentProfileForm() {
       ...prev,
       profilePhotoUrl: ""
     }));
+    setPhotoError(null);
   };
 
   const selectedEnglishOptions = englishScoreOptions[formData.englishStatus] || [];
@@ -299,10 +374,11 @@ export default function StudentProfileForm() {
             <section className="rounded-2xl border border-border-subtle bg-gray-50 p-5">
               <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
                 <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white shadow-sm">
-                  {formData.profilePhotoUrl ? (
+                  {formData.profilePhotoUrl && !imageError ? (
                     <img
                       src={formData.profilePhotoUrl}
-                      alt="Profile preview"
+                      alt=""
+                      onError={() => setImageError(true)}
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -316,19 +392,22 @@ export default function StudentProfileForm() {
                     Profile Photo
                   </h3>
                   <p className="mt-1 text-xs text-text-secondary">
-                    Optional. Upload a small image below 1.5 MB. It will be
-                    stored locally in this browser.
+                    Optional. Your photo will be resized and stored locally in this browser.
                   </p>
 
                   <div className="mt-4 flex flex-wrap gap-3">
-                    <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-google-blue px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700">
+                    <label className={cn(
+                      "inline-flex cursor-pointer items-center gap-2 rounded-xl bg-google-blue px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-blue-700",
+                      isProcessingPhoto && "pointer-events-none opacity-50"
+                    )}>
                       <Upload className="h-4 w-4" />
                       Upload Photo
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/png,image/webp"
                         onChange={handlePhotoUpload}
                         className="hidden"
+                        disabled={isProcessingPhoto}
                       />
                     </label>
 
@@ -336,13 +415,26 @@ export default function StudentProfileForm() {
                       <button
                         type="button"
                         onClick={removePhoto}
-                        className="inline-flex items-center gap-2 rounded-xl border border-border-subtle bg-white px-4 py-2 text-xs font-bold text-text-secondary transition-colors hover:bg-gray-100"
+                        disabled={isProcessingPhoto}
+                        className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border-subtle bg-white px-4 py-2 text-xs font-bold text-text-secondary transition-colors hover:bg-gray-100 disabled:pointer-events-none disabled:opacity-50"
                       >
                         <Trash2 className="h-4 w-4" />
                         Remove Photo
                       </button>
                     )}
                   </div>
+
+                  {isProcessingPhoto && (
+                    <p className="mt-2 text-xs text-google-blue font-medium animate-pulse">
+                      Processing photo...
+                    </p>
+                  )}
+
+                  {photoError && (
+                    <p className="mt-2 text-xs text-google-red font-medium">
+                      {photoError}
+                    </p>
+                  )}
                 </div>
               </div>
             </section>
@@ -389,8 +481,8 @@ export default function StudentProfileForm() {
                   <GraduationCap className="h-3 w-3" />
                   Current Education
                 </label>
-                <input
-                  type="text"
+                <select
+                  required
                   value={formData.currentEducation}
                   onChange={(event) =>
                     setFormData({
@@ -398,9 +490,17 @@ export default function StudentProfileForm() {
                       currentEducation: event.target.value
                     })
                   }
-                  placeholder="Ex: Bachelor's"
-                  className="w-full rounded-xl border border-border-subtle px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
-                />
+                  className="w-full rounded-xl border border-border-subtle bg-white px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
+                >
+                  <option value="">Select current education...</option>
+                  <option value="High School / Senior Secondary">High School / Senior Secondary</option>
+                  <option value="Diploma / Associate Degree">Diploma / Associate Degree</option>
+                  <option value="Bachelor’s Degree">Bachelor’s Degree</option>
+                  <option value="Master’s Degree">Master’s Degree</option>
+                  <option value="Doctoral / PhD">Doctoral / PhD</option>
+                  <option value="Professional Certification / Bootcamp">Professional Certification / Bootcamp</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
 
               <div className="space-y-2">
@@ -615,27 +715,51 @@ export default function StudentProfileForm() {
               </div>
             </section>
 
-            <section className="space-y-2">
-              <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
-                <Calendar className="h-3 w-3" />
-                Preferred Intake Year
-              </label>
-              <select
-                value={formData.preferredIntakeYear}
-                onChange={(event) =>
-                  setFormData({
-                    ...formData,
-                    preferredIntakeYear: event.target.value
-                  })
-                }
-                className="w-full rounded-xl border border-border-subtle px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
-              >
-                {intakeYearOptions.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </select>
+            <section className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+                  <Calendar className="h-3 w-3" />
+                  Preferred Intake Year
+                </label>
+                <select
+                  value={formData.preferredIntakeYear}
+                  onChange={(event) =>
+                    setFormData({
+                      ...formData,
+                      preferredIntakeYear: event.target.value
+                    })
+                  }
+                  className="w-full rounded-xl border border-border-subtle px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
+                >
+                  {intakeYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-text-secondary">
+                  <Users className="h-3 w-3" />
+                  Recommendation Status
+                </label>
+                <select
+                  value={formData.recommenderStatus || "Not Started"}
+                  onChange={(event) =>
+                    setFormData({
+                      ...formData,
+                      recommenderStatus: event.target.value as any
+                    })
+                  }
+                  className="w-full rounded-xl border border-border-subtle px-4 py-3 text-sm outline-none transition-all focus:border-google-blue focus:ring-1 focus:ring-google-blue"
+                >
+                  <option value="Not Started">Not Started</option>
+                  <option value="Requested">Requested (Contacted)</option>
+                  <option value="Confirmed">Confirmed (Committed)</option>
+                  <option value="Submitted">Submitted (Uploaded)</option>
+                </select>
+              </div>
             </section>
           </div>
 

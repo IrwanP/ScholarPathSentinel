@@ -17,10 +17,13 @@ import {
 import { realScholarships } from "../../data/scholarships";
 import { cn } from "@/src/lib/utils";
 import { useProfile } from "../../context/ProfileContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { calculateScholarshipScore } from "../../lib/scholarshipScoring";
 
 export default function ScholarshipsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusId = searchParams.get("focus");
   const { mode, profile, setIsProfileFormOpen, savedScholarshipIds, activeScholarshipId, toggleSaveScholarship, setActiveScholarship, handleAnalyzeFit } = useProfile();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,33 +57,37 @@ export default function ScholarshipsPage() {
       
       return matchesSearch && matchesRegion && matchesDegree;
     }).map(s => {
-      // Calculate a dynamic match score based on user profile if available
-      let score = 0;
-      let fitCategory = "Demo Match";
-      
       if (profile) {
-        // Simple heuristic matching
-        if (profile.targetDegree && s.degreeLevels.includes(profile.targetDegree)) score += 40;
-        if (profile.targetCountries?.includes(s.country) || s.region === "Global") score += 30;
-        
-        // Field of study match
-        if (profile.targetField && s.fieldsOfStudy?.some(f => f.toLowerCase().includes(profile.targetField!.toLowerCase()))) score += 15;
-        
-        // Specific University Match (e.g. searching MIT and having MIT in tags/Keywords)
-        if (searchQuery && s.tags.some(t => t.toLowerCase() === searchQuery.toLowerCase())) score += 5;
-
-        if (profile.gpa && parseFloat(profile.gpa.toString()) >= 3.5) score += 5;
-        if (profile.englishStatus !== "Not Taken") score += 5;
-        
-        fitCategory = score >= 85 ? "Excellent Match" : score >= 70 ? "Good Match" : score >= 50 ? "Moderate Match" : "Competitive Reach";
+        const scoreResult = calculateScholarshipScore(s, profile);
+        return {
+          ...s,
+          matchScore: scoreResult.matchScore,
+          fitCategory: scoreResult.fitCategory,
+          rationale: scoreResult.rationale,
+          tieBreakerScore: scoreResult.tieBreakerScore,
+          rankReasons: scoreResult.rankReasons
+        };
       } else {
-        score = 0; // Will be handled in UI
-        fitCategory = "Profile Required";
+        return {
+          ...s,
+          matchScore: 0,
+          fitCategory: "Profile Required",
+          rationale: "",
+          tieBreakerScore: 0,
+          rankReasons: []
+        };
       }
-      
-      return { ...s, matchScore: Math.min(score, 100), fitCategory };
-    }).sort((a, b) => b.matchScore - a.matchScore);
-  }, [searchQuery, filterRegion, filterDegree, profile]);
+    }).sort((a, b) => {
+      if (focusId) {
+        if (a.id === focusId && b.id !== focusId) return -1;
+        if (b.id === focusId && a.id !== focusId) return 1;
+      }
+      if (b.matchScore !== a.matchScore) {
+        return b.matchScore - a.matchScore;
+      }
+      return (b.tieBreakerScore ?? 0) - (a.tieBreakerScore ?? 0);
+    });
+  }, [searchQuery, filterRegion, filterDegree, profile, focusId]);
 
   const savedScholarships = filteredScholarships.filter(s => savedScholarshipIds.includes(s.id));
 
@@ -125,7 +132,7 @@ export default function ScholarshipsPage() {
           <div>
              <h1 className="text-3xl font-extrabold text-text-main mb-2">Scholarship Matches</h1>
              <p className="text-text-secondary text-sm">
-                Curated from official/public scholarship sources. Dynamic matching based on your profile.
+                Curated from official/public scholarship sources. Dynamic matching based on your profile. Ranking is based on profile fit, country/region fit, degree fit, field relevance, funding coverage, evidence strength, and official eligibility clarity.
              </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-google-blue/5 border border-google-blue/10 rounded-full">
@@ -302,6 +309,7 @@ export default function ScholarshipsPage() {
         {filteredScholarships.map((scholarship, idx) => {
           const isSaved = savedScholarshipIds.includes(scholarship.id);
           const isActive = activeScholarshipId === scholarship.id;
+          const isTied = filteredScholarships.filter(s => s.id !== scholarship.id && s.matchScore === scholarship.matchScore).length > 0;
           
           return (
             <motion.div 
@@ -311,21 +319,14 @@ export default function ScholarshipsPage() {
               transition={{ delay: idx * 0.05 }}
               className={cn(
                 "bg-white rounded-xl border transition-all relative overflow-hidden group",
-                isActive ? "border-google-green shadow-md shadow-google-green/10" : "border-border-subtle shadow-sm hover:border-google-blue/30",
+                focusId === scholarship.id
+                  ? "border-google-blue bg-google-blue-light/10 shadow-md ring-2 ring-google-blue/30"
+                  : isActive
+                  ? "border-google-green shadow-md shadow-google-green/10"
+                  : "border-border-subtle shadow-sm hover:border-google-blue/30",
                 isSaved && !isActive && "border-l-4 border-l-google-green"
               )}
             >
-              {isSaved && !isActive && (
-                <div className="absolute top-4 right-16 flex items-center gap-1 px-3 py-1 bg-google-green-light text-google-green-text text-[10px] font-bold rounded-full border border-google-green/20">
-                  <CheckCircle2 className="h-3 w-3" /> Saved ✓
-                </div>
-              )}
-
-              {isActive && (
-                <div className="absolute top-4 right-16 flex items-center gap-1 px-3 py-1 bg-google-green text-white text-[10px] font-bold rounded-full shadow-sm">
-                  <CheckCircle2 className="h-3 w-3" /> Active for Preparation
-                </div>
-              )}
               
               <div className="p-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
@@ -334,7 +335,21 @@ export default function ScholarshipsPage() {
                       <GraduationCap className="h-6 w-6 text-text-secondary" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-text-main group-hover:text-google-blue transition-colors leading-tight">{scholarship.name}</h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-xl font-bold text-text-main group-hover:text-google-blue transition-colors leading-tight">
+                          {scholarship.name}
+                        </h3>
+                        {focusId === scholarship.id && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-google-blue text-white text-[10px] font-bold rounded-full shadow-sm animate-pulse">
+                            Selected Target
+                          </span>
+                        )}
+                        {isSaved && !isActive && (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-google-green-light text-google-green-text text-[10px] font-bold rounded-full border border-google-green/20">
+                            Saved ✓
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                         <span className="text-sm font-bold text-google-blue">{scholarship.provider}</span>
                         {scholarship.institution && (
@@ -362,7 +377,7 @@ export default function ScholarshipsPage() {
                         ) : (
                           <button 
                             onClick={() => setIsProfileFormOpen(true)}
-                            className="text-[10px] font-bold text-google-blue hover:underline text-right max-w-[120px] leading-tight"
+                            className="text-[10px] font-bold text-google-blue hover:underline text-right max-w-[120px] leading-tight cursor-pointer"
                           >
                             Create profile to see score
                           </button>
@@ -411,25 +426,51 @@ export default function ScholarshipsPage() {
                        <span className={cn(
                         "text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded",
                         scholarship.applicationStatus === "Open" ? "bg-google-green text-white" : "bg-gray-100 text-text-secondary"
-                      )}>{scholarship.applicationStatus}</span>
+                       )}>{scholarship.applicationStatus}</span>
                       <span className="text-[9px] text-text-secondary italic">Last verified: {scholarship.lastVerified}</span>
                     </div>
                   </div>
                 </div>
-
+ 
                 <div className="mt-4 p-4 bg-gray-50 rounded-xl">
                   <p className="text-xs font-bold text-text-secondary uppercase tracking-widest mb-2">Eligibility Summary</p>
-                  <p className="text-xs text-text-main leading-relaxed">{scholarship.eligibilitySummary}</p>
+                  <p className="text-xs text-text-main leading-relaxed mb-3">{scholarship.eligibilitySummary}</p>
+                  {scholarship.rationale && (
+                    <>
+                      <p className="text-[10px] font-bold text-google-blue uppercase tracking-widest mb-1">Sentinel Fit Rationale</p>
+                      <p className="text-xs text-text-secondary italic leading-relaxed">{scholarship.rationale}</p>
+                    </>
+                  )}
+                  {scholarship.rankReasons && scholarship.rankReasons.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-1.5">
+                      {scholarship.rankReasons.map((reason) => (
+                        <span key={reason} className="px-2 py-0.5 bg-blue-50 text-google-blue rounded text-[9px] font-bold">
+                          {reason}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {isTied && profile && (
+                    <div className="mt-3 p-3 bg-white border border-border-subtle rounded-xl flex items-start gap-2">
+                      <HelpCircle className="h-4 w-4 text-google-blue shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[10px] font-bold text-google-blue uppercase tracking-widest leading-none mb-1">Tied Rank Explanation</p>
+                        <p className="text-[10px] text-text-secondary leading-relaxed">
+                          This scholarship has the same match percentage as other options. Ranking order is resolved using secondary tie-breakers: target-country fit, target-degree fit, field relevance, funding coverage, evidence strength, official eligibility clarity, and document complexity.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               
-              <div className="px-6 py-3 bg-gray-50/50 border-t border-border-subtle flex flex-wrap gap-2 justify-end items-center">
+              <div className="px-6 py-3 bg-gray-50/50 border-t border-border-subtle flex flex-wrap gap-3 justify-end items-center">
                 <button 
                   onClick={() => {
                     handleAnalyzeFit(scholarship.id, scholarship.name);
                     navigate("/preparation#evidence-gap");
                   }}
-                  className="px-3 py-1.5 text-xs font-bold text-google-blue hover:bg-google-blue-light hover:text-google-blue rounded-md transition-all"
+                  className="px-3 py-1.5 text-xs font-bold text-google-blue hover:bg-google-blue-light hover:text-google-blue rounded-md transition-all cursor-pointer"
                 >
                   Analyze My Fit
                 </button>
@@ -437,7 +478,7 @@ export default function ScholarshipsPage() {
                 <button 
                   onClick={() => toggleSaveScholarship(scholarship.id, scholarship.name)}
                   className={cn(
-                    "px-3 py-1.5 text-xs font-bold rounded-md transition-all border",
+                    "px-3 py-1.5 text-xs font-bold rounded-md transition-all border cursor-pointer",
                     isSaved 
                       ? "text-google-red border-google-red/20 hover:bg-red-50" 
                       : "text-google-blue border-google-blue/30 hover:bg-google-blue hover:text-white"
@@ -445,18 +486,16 @@ export default function ScholarshipsPage() {
                 >
                   {isSaved ? "Remove from Roadmap" : "Save to Roadmap"}
                 </button>
-
+ 
                 {isSaved && (
                   <button 
                     onClick={() => {
-                      if (isActive) {
-                        // Optional message if clicked when already active
-                      } else {
+                      if (!isActive) {
                         setActiveScholarship(scholarship.id, scholarship.name);
                       }
                     }}
                     className={cn(
-                      "px-4 py-1.5 text-xs font-bold rounded-md transition-all shadow-sm flex items-center gap-2",
+                      "px-4 py-1.5 text-xs font-bold rounded-md transition-all shadow-sm flex items-center gap-2 cursor-pointer",
                       isActive 
                         ? "bg-google-green text-white cursor-default" 
                         : "bg-white border border-google-blue text-google-blue hover:bg-google-blue hover:text-white"
@@ -465,15 +504,13 @@ export default function ScholarshipsPage() {
                     {isActive ? <><CheckCircle2 className="h-4 w-4" /> ✓ Active for Preparation</> : "Set as Active"}
                   </button>
                 )}
-
-                <div className="ml-auto md:ml-4">
-                   <button 
-                    onClick={() => window.open(scholarship.officialUrl, "_blank")}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-white border border-border-subtle rounded-md text-xs font-bold text-text-secondary hover:bg-gray-50 transition-all"
-                  >
-                    <ExternalLink className="h-3.5 w-3.5" /> Official Source
-                  </button>
-                </div>
+ 
+                <button 
+                  onClick={() => window.open(scholarship.officialUrl, "_blank")}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white border border-border-subtle rounded-md text-xs font-bold text-text-secondary hover:bg-gray-50 transition-all cursor-pointer"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> Official Source
+                </button>
               </div>
             </motion.div>
           );
