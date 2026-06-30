@@ -159,21 +159,36 @@ export function calculateReadiness(profile: StudentProfile): number {
 
     // Check milestones
     const isRecSubmitted = profile.recommenderStatus === "Submitted" || profile.recommenderStatus === "Uploaded" || profile.recommenderStatus === "Received";
-    const isTimelineConfirmed = profile.deadlineTimelineStatus === "confirmed" || profile.deadlineMilestonesConfirmed === true;
-    const isComplianceCompleted = profile.complianceScanCompleted === true || profile.complianceScanStatus === "completed" || profile.finalReviewStatus === "completed";
+    const isTimelineConfirmed = profile.deadlineTimelineStatus === "confirmed" && profile.deadlineMilestonesConfirmed === true;
+    const isComplianceCompleted = profile.complianceScanCompleted === true && profile.automatedComplianceChecksPassed === true;
 
     // 100 score rule:
+    const hasUnresolvedHighOrCriticalRisks = 
+        risks.evidenceRisk > 60 ||
+        risks.deadlineRisk > 60 ||
+        risks.recommenderRisk > 60 ||
+        risks.storyRisk > 60 ||
+        risks.fitRisk > 60 ||
+        risks.englishRisk > 60;
+
+    const checklist = profile.finalHumanReviewChecklist;
+    const isChecklistComplete = checklist ? (
+        checklist.scholarshipFitReviewed === true &&
+        checklist.essayReviewed === true &&
+        checklist.requiredDocumentsReviewed === true &&
+        checklist.recommendationLettersReviewed === true &&
+        checklist.deadlinePlanReviewed === true &&
+        checklist.finalApplicationPackageReviewed === true
+    ) : false;
+
     const isReadyFor100 = 
         isRecSubmitted &&
         isTimelineConfirmed &&
         isComplianceCompleted &&
+        profile.finalComplianceCheckCompleted === true &&
         profile.finalHumanReviewCompleted === true &&
-        risks.evidenceRisk <= 15 &&
-        risks.deadlineRisk <= 15 &&
-        risks.recommenderRisk <= 15 &&
-        risks.storyRisk <= 15 &&
-        risks.fitRisk <= 15 &&
-        risks.englishRisk <= 15;
+        isChecklistComplete &&
+        !hasUnresolvedHighOrCriticalRisks;
 
     if (isAlya) {
         if (!isRecSubmitted) {
@@ -182,7 +197,7 @@ export function calculateReadiness(profile: StudentProfile): number {
             finalScore = 85;
         } else if (!isComplianceCompleted) {
             finalScore = 90;
-        } else if (!profile.finalHumanReviewCompleted) {
+        } else if (!isReadyFor100) {
             finalScore = 94;
         } else {
             finalScore = 100;
@@ -195,9 +210,9 @@ export function calculateReadiness(profile: StudentProfile): number {
             finalScore = Math.min(finalScore, 85);
         } else if (!isComplianceCompleted) {
             finalScore = Math.min(finalScore, 90);
-        } else if (!profile.finalHumanReviewCompleted) {
-            finalScore = Math.min(finalScore, 94);
         } else if (!isReadyFor100) {
+            finalScore = Math.min(finalScore, 94);
+        } else {
             finalScore = Math.min(finalScore, 98);
         }
     }

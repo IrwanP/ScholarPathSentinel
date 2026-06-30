@@ -35,6 +35,8 @@ export interface StudentProfile {
   finalHumanReviewDate?: string | null;
   finalHumanReviewerType?: "Mentor" | "Teacher" | "Advisor" | "Peer Reviewer" | "Other" | null;
   finalHumanReviewerName?: string | null;
+  finalComplianceCheckCompleted?: boolean;
+  finalComplianceCheckCompletedAt?: string | null;
   finalHumanReviewChecklist?: {
     scholarshipFitReviewed: boolean;
     essayReviewed: boolean;

@@ -35,6 +35,29 @@ export default function OverviewPage() {
   const analysis = getActiveAnalysis(profile, sentinelResult);
   const isRecSubmitted = profile?.recommenderStatus === "Submitted" || profile?.recommenderStatus === "Uploaded" || profile?.recommenderStatus === "Received" || (analysis?.risks?.recommenderRisk ?? 80) <= 30;
 
+  const milestone1Done = Boolean(profile && mode !== "empty");
+  const milestone2Done = Boolean(profile && profile.gpa > 0 && profile.englishStatus !== "Not Taken");
+  const milestone3Done = Boolean(profile && (profile.recommenderStatus === "Submitted" || profile.recommenderStatus === "Uploaded" || profile.recommenderStatus === "Received"));
+  const milestone4Done = Boolean(profile && profile.deadlineTimelineStatus === "confirmed" && profile.deadlineMilestonesConfirmed === true);
+  const milestone5Done = Boolean(profile && ((profile as any).essayReviewed === true || profile.finalHumanReviewChecklist?.essayReviewed === true || profile.finalHumanReviewCompleted === true));
+  const milestone6Done = Boolean(profile && profile.complianceScanCompleted === true && profile.automatedComplianceChecksPassed === true && profile.finalComplianceCheckCompleted === true && profile.finalHumanReviewCompleted === true);
+
+  const doneList = [milestone1Done, milestone2Done, milestone3Done, milestone4Done, milestone5Done, milestone6Done];
+  const completedMilestones = doneList.filter(Boolean).length;
+  const roadmapPercentage = Math.round((completedMilestones / 6) * 100);
+
+  // The first incomplete milestone is active
+  const activeIndex = doneList.indexOf(false);
+
+  const checklistItems = [
+    { label: "Profile Intake Complete", done: milestone1Done, active: activeIndex === 0 },
+    { label: "Verify Basic Academic Standing", done: milestone2Done, active: activeIndex === 1 },
+    { label: "Secure Recommender Contact", done: milestone3Done, active: activeIndex === 2 },
+    { label: "Confirm Scholarship Deadlines", done: milestone4Done, active: activeIndex === 3 },
+    { label: "Draft Essay & SOP arc", done: milestone5Done, active: activeIndex === 4 },
+    { label: "Final Submission Review", done: milestone6Done, active: activeIndex === 5 },
+  ];
+
   const handleStart = () => {
     if (mode === "empty") {
       setIsProfileFormOpen(true);
@@ -401,11 +424,11 @@ export default function OverviewPage() {
                 <div className="min-w-0">
                   <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rescue Roadmap Status</span>
                   <p className="text-sm font-bold text-slate-700 mt-1">
-                    {2 + (isRecSubmitted ? 1 : 0)} / 6 Milestones Completed
+                    {completedMilestones} / 6 Milestones Completed
                   </p>
                 </div>
                 <span className="text-2xl font-black text-blue-600">
-                  {Math.round(((2 + (isRecSubmitted ? 1 : 0)) / 6) * 100)}%
+                  {roadmapPercentage}%
                 </span>
               </div>
 
@@ -413,19 +436,12 @@ export default function OverviewPage() {
               <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
                 <div 
                   className="h-full bg-blue-600 rounded-full transition-all duration-1000" 
-                  style={{ width: `${Math.round(((2 + (isRecSubmitted ? 1 : 0) + ((profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? 1 : 0)) / 6) * 100)}%` }} 
+                  style={{ width: `${roadmapPercentage}%` }} 
                 />
               </div>
 
               <div className="space-y-3 pt-2">
-                {[
-                  { label: "Profile Intake Complete", done: true, active: false },
-                  { label: "Verify Basic Academic Standing", done: profile ? profile.gpa >= 3.0 : false, active: false },
-                  { label: "Secure Recommender Contact", done: isRecSubmitted, active: !isRecSubmitted },
-                  { label: "Confirm Scholarship Deadlines", done: profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true, active: isRecSubmitted && profile?.deadlineTimelineStatus !== "confirmed" && profile?.deadlineMilestonesConfirmed !== true },
-                  { label: "Draft Essays & SOP arc", done: false, active: false },
-                  { label: "Final Submission Review", done: false, active: false },
-                ].map((item, idx) => (
+                {checklistItems.map((item, idx) => (
                   <div key={idx} className={cn("flex items-center justify-between p-2.5 rounded-xl border", 
                     item.done ? "bg-emerald-50/20 border-emerald-100/50 text-slate-600" :
                     item.active ? "bg-blue-50/20 border-blue-200 text-[#0F172A] font-bold" : "bg-slate-50/30 border-slate-100 text-slate-400"

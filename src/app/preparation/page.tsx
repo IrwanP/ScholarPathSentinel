@@ -204,7 +204,7 @@ export default function PreparationPage() {
       }
       return next;
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   return (
@@ -265,9 +265,7 @@ export default function PreparationPage() {
             transition={{ duration: 0.15 }}
             className="p-6 sm:p-8"
           >
-            {activeTab === "report" && <OnePageReport 
-              onNavigate={handleNavigateAndFocus} 
-            />}
+            {activeTab === "report" && <OnePageReport onNavigate={handleNavigateAndFocus} />}
             {activeTab === "mentor" && <AIScholarshipMentor />}
             {activeTab === "gap" && <EvidenceGap onNavigate={handleNavigateAndFocus} />}
             {activeTab === "roadmap" && <Roadmap onNavigate={handleNavigateAndFocus} />}
@@ -309,7 +307,7 @@ function EvidenceGap({ onNavigate }: { onNavigate: (id: string, focusId?: string
     "Your target degree matches this scholarship.",
     "The UK is one of your target countries.",
     "You already have IELTS readiness (score 7.0).",
-    "Your leadership and community impact are relevant."
+    "You have leadership and community impact relevant credentials."
   ] : [
     `GPA (${profile?.gpa.toFixed(2)}) meets basic academic requirements.`,
     profile?.englishStatus !== "Not Taken" ? `Language status verified (${profile?.englishStatus} score logged).` : "Target country preference logged.",
@@ -406,7 +404,8 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
   const deadlineRisk = sentinelResult?.risks?.deadlineRisk ?? 75;
 
   const isRecSubmitted = profile?.recommenderStatus === "Submitted" || profile?.recommenderStatus === "Uploaded" || profile?.recommenderStatus === "Received";
-  const isTimelineConfirmed = profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true;
+  const isTimelineConfirmed = profile?.deadlineTimelineStatus === "confirmed" && profile?.deadlineMilestonesConfirmed === true;
+  const isComplianceCompleted = profile?.complianceScanCompleted === true && profile?.automatedComplianceChecksPassed === true;
 
   const [showTimelineBuilder, setShowTimelineBuilder] = useState(searchParams.get("focus") === "deadline");
   const [showRecommenderBuilder, setShowRecommenderBuilder] = useState(searchParams.get("focus") === "recommender" || searchParams.get("focus") === "recommenders");
@@ -427,8 +426,6 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
       }, 150);
     }
   }, [searchParams]);
-
-  const isComplianceCompleted = profile?.complianceScanCompleted === true || profile?.complianceScanStatus === "completed" || profile?.finalReviewStatus === "completed";
 
   const recommendedActions = isRecSubmitted ? [
     { label: "Confirm Scholarship Deadlines", path: "/preparation?tab=roadmap&focus=deadline", btnLabel: "Review Deadlines" },
@@ -589,13 +586,13 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
     {
       num: 4,
       title: "Confirm Scholarship Deadlines",
-      desc: (profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true)
+      desc: isTimelineConfirmed
         ? "Submission timeline drafted and milestone dates confirmed."
         : "Add official timeline milestones and portal submission dates to calendar.",
-      priority: (profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? "Low Priority" : (isRecSubmitted ? "High Priority" : "Medium Priority"),
-      status: (profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? "Completed" : (isRecSubmitted ? "In Progress" : "Upcoming"),
+      priority: isTimelineConfirmed ? "Low Priority" : (isRecSubmitted ? "High Priority" : "Medium Priority"),
+      status: isTimelineConfirmed ? "Completed" : (isRecSubmitted ? "In Progress" : "Upcoming"),
       icon: Clock,
-      ctaLabel: (profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? (showTimelineBuilder ? "Hide Timeline" : "View Timeline") : (showTimelineBuilder ? "Hide Timeline" : "Build Timeline"),
+      ctaLabel: isTimelineConfirmed ? (showTimelineBuilder ? "Hide Timeline" : "View Timeline") : (showTimelineBuilder ? "Hide Timeline" : "Build Timeline"),
       action: () => {
         if (showTimelineBuilder) {
           setShowTimelineBuilder(false);
@@ -612,13 +609,19 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
     {
       num: 5,
       title: "Final Compliance Check",
-      desc: isComplianceCompleted 
-        ? "Application package successfully scanned and verified compliant."
-        : "Run Compliance Scanner to check documents, timeline, and scholarship requirements.",
-      priority: isComplianceCompleted ? "Low Priority" : (isTimelineConfirmed ? "High Priority" : "Medium Priority"),
-      status: isComplianceCompleted ? "Completed" : (isTimelineConfirmed ? "In Progress" : "Upcoming"),
+      desc: profile?.finalComplianceCheckCompleted === true
+        ? "Application package successfully scanned and final compliance confirmed."
+        : (isComplianceCompleted 
+          ? "Automated compliance checks passed. Final compliance confirmation is pending."
+          : "Run Compliance Scanner to check documents, timeline, and scholarship requirements."),
+      priority: profile?.finalComplianceCheckCompleted === true ? "Low Priority" : (isTimelineConfirmed ? "High Priority" : "Medium Priority"),
+      status: profile?.finalComplianceCheckCompleted === true
+        ? "Completed"
+        : (isComplianceCompleted 
+          ? "Pending Final Confirmation"
+          : (isTimelineConfirmed ? "In Progress" : "Upcoming")),
       icon: ClipboardCheck,
-      ctaLabel: isComplianceCompleted ? "View Scan Results" : "Run Compliance Scanner",
+      ctaLabel: profile?.finalComplianceCheckCompleted === true ? "View Scan Results" : (isComplianceCompleted ? "Confirm Compliance" : "Run Compliance Scanner"),
       action: () => handleRoadmapAction("run-compliance-scan")
     },
     {
@@ -627,8 +630,12 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
       desc: profile?.finalHumanReviewCompleted === true
         ? `Human review completed by ${profile?.finalHumanReviewerType || "Advisor"}${profile?.finalHumanReviewerName ? ` (${profile.finalHumanReviewerName})` : ""}.`
         : "Mentor or advisor review is recommended to secure final sign-off before submission.",
-      priority: profile?.finalHumanReviewCompleted === true ? "Low Priority" : (isComplianceCompleted ? "High Priority" : "Low Priority"),
-      status: profile?.finalHumanReviewCompleted === true ? "Completed" : (isComplianceCompleted ? "In Progress" : "Upcoming"),
+      priority: profile?.finalHumanReviewCompleted === true ? "Low Priority" : (profile?.finalComplianceCheckCompleted === true ? "High Priority" : "Low Priority"),
+      status: profile?.finalHumanReviewCompleted === true
+        ? "Completed"
+        : (profile?.finalComplianceCheckCompleted === true
+          ? "Pending Human Review"
+          : "Upcoming"),
       icon: Users,
       ctaLabel: profile?.finalHumanReviewCompleted === true ? "Review Details" : "Start Human Review",
       action: () => onNavigate("review")
@@ -643,7 +650,7 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
 
   const getStatusStyle = (s: string) => {
     if (s === "Completed") return "bg-emerald-500 text-white";
-    if (s === "In Progress") return "bg-blue-600 text-white";
+    if (s === "In Progress" || s === "Pending Final Confirmation" || s === "Pending Human Review") return "bg-blue-600 text-white";
     return "bg-slate-100 text-slate-500 border border-slate-200";
   };
 
@@ -667,7 +674,7 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
                 <div className={cn(
                   "h-12 w-12 rounded-full flex items-center justify-center border-4 border-white shadow-md z-10 shrink-0 transition-all",
                   step.status === "Completed" ? "bg-emerald-500 text-white" : 
-                  step.status === "In Progress" ? "bg-blue-600 text-white animate-pulse" : "bg-slate-200 text-slate-400"
+                  (step.status === "In Progress" || step.status === "Pending Final Confirmation" || step.status === "Pending Human Review") ? "bg-blue-600 text-white animate-pulse" : "bg-slate-200 text-slate-400"
                 )}>
                   {step.status === "Completed" ? <CheckCircle2 className="h-5 w-5 text-white" /> : <Icon className="h-5 w-5" />}
                 </div>
@@ -738,7 +745,7 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
                         </div>
 
                         <div className="grid gap-3 md:grid-cols-3 pt-2 border-t border-slate-100">
-                          <div className="text-[11px] text-slate-600">
+                          <div className="text-[11px] text-slate-650">
                             <span className="font-bold block text-slate-800">Scholarship Context:</span>
                             Targeting {profile?.targetDegree} in {profile?.targetCountries?.join(", ") || "selected countries"}.
                           </div>
@@ -782,26 +789,26 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
                   {step.num === 4 && showTimelineBuilder && (
                     <div className={cn(
                       "mt-4 p-5 rounded-2xl space-y-4 text-left animate-fade-in w-full border",
-                      (profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true)
+                      isTimelineConfirmed
                         ? "bg-emerald-50/20 border-emerald-200" 
                         : "bg-rose-50/20 border-rose-150"
                     )}>
                       <div className={cn(
                         "flex items-center justify-between border-b pb-2",
-                        (profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? "border-emerald-100" : "border-rose-100"
+                        isTimelineConfirmed ? "border-emerald-100" : "border-rose-100"
                       )}>
                         <h5 className="font-extrabold text-slate-900 text-sm">Submission Timeline Builder</h5>
-                        {(profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? (
+                        {isTimelineConfirmed ? (
                           <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase">Confirmed</span>
                         ) : (
                           <span className="text-[10px] font-black text-rose-600 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded uppercase">Active Plan</span>
                         )}
                       </div>
-                      
-                      {(profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) && (
+
+                      {timelineSuccessMessage && (
                         <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl flex items-center gap-2">
                           <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                          <span>{timelineSuccessMessage || "Timeline drafted. Deadline risk reduced and your readiness has improved."}</span>
+                          <span>{timelineSuccessMessage}</span>
                         </div>
                       )}
 
@@ -835,7 +842,7 @@ function Roadmap({ onNavigate }: { onNavigate: (id: string, focusId?: string) =>
                         </div>
                       </div>
                       <div className="pt-3 border-t border-slate-150 flex flex-wrap gap-2 justify-end">
-                        {(profile?.deadlineTimelineStatus === "confirmed" || profile?.deadlineMilestonesConfirmed === true) ? (
+                        {isTimelineConfirmed ? (
                           <button
                             type="button"
                             disabled
@@ -981,6 +988,7 @@ function DocumentChecklist({ onNavigate }: { onNavigate: (id: string, focusId?: 
     </div>
   );
 }
+
 function EssayCoach({ onNavigate }: { onNavigate: (id: string, focusId?: string) => void }) {
   const { mode, profile, sentinelResult } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -1159,6 +1167,10 @@ function EssayCoach({ onNavigate }: { onNavigate: (id: string, focusId?: string)
     ]);
   };
 
+  const handleOpenChecklist = () => {
+    setShowChecklist(prev => !prev);
+  };
+
   return (
     <div className="space-y-8 text-left">
       <div>
@@ -1207,11 +1219,11 @@ function EssayCoach({ onNavigate }: { onNavigate: (id: string, focusId?: string)
               </div>
               <span className="font-bold text-slate-650">{Math.round((Math.max(0, essayStep - 1) / 8) * 100)}%</span>
             </div>
-            <p className="text-[10px] text-slate-450 leading-relaxed font-semibold">Progress through the guided reflection interview to outline your SOP structure.</p>
+            <p className="text-[10px] text-slate-455 leading-relaxed font-semibold">Progress through the guided reflection interview to outline your SOP structure.</p>
           </div>
 
           <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-2 text-xs shadow-sm">
-            <span className="text-[10px] font-black uppercase text-slate-450 tracking-wider block">Authenticity Guardrails</span>
+            <span className="text-[10px] font-black uppercase text-slate-455 tracking-wider block">Authenticity Guardrails</span>
             <ul className="space-y-1.5 text-[11px] text-slate-600 font-semibold list-disc pl-4 leading-normal">
               <li>Claims must be supported by real evidence</li>
               <li>Do not invent awards, roles, or outcomes</li>
@@ -1350,7 +1362,7 @@ function EssayCoach({ onNavigate }: { onNavigate: (id: string, focusId?: string)
                     onClick={() => setActiveRightTab(t.id as any)}
                     className={cn(
                       "text-[10px] font-black pb-1.5 border-b-2 uppercase tracking-wider cursor-pointer",
-                      activeRightTab === t.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-650"
+                      activeRightTab === t.id ? "border-blue-600 text-blue-600" : "border-transparent text-slate-400 hover:text-slate-655"
                     )}
                   >
                     {t.label}
@@ -1440,7 +1452,7 @@ function EssayCoach({ onNavigate }: { onNavigate: (id: string, focusId?: string)
             {showChecklist && (
               <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm">Draft Improvement Checklist</h4>
-                <ul className="space-y-2 text-xs font-semibold text-slate-600 pl-1">
+                <ul className="space-y-2 text-xs font-semibold text-slate-655 pl-1">
                   <li className="flex items-start gap-2">
                     <input type="checkbox" defaultChecked className="mt-0.5 rounded cursor-pointer" />
                     <span>State the core community problem clearly</span>
@@ -1722,7 +1734,7 @@ function InterviewCoach({ onNavigate }: { onNavigate: (id: string, focusId?: str
                   )}
                 >
                   <span className="font-extrabold block text-[11px]">{m.name}</span>
-                  <span className="text-[9px] text-slate-400 block mt-0.5 leading-normal">{m.desc}</span>
+                  <span className="text-[9px] text-slate-455 block mt-0.5 leading-normal">{m.desc}</span>
                 </button>
               ))}
             </div>
@@ -1869,7 +1881,7 @@ function InterviewCoach({ onNavigate }: { onNavigate: (id: string, focusId?: str
             {showChecklist && (
               <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm space-y-3">
                 <h4 className="font-bold text-slate-900 text-sm">Interview Checklist</h4>
-                <ul className="space-y-2 text-xs font-semibold text-slate-650">
+                <ul className="space-y-2 text-xs font-semibold text-slate-655">
                   <li className="flex items-start gap-2">
                     <input type="checkbox" defaultChecked className="mt-0.5 rounded cursor-pointer" />
                     <span>Outline 3 key leadership stories in STAR/CAR format</span>
@@ -2044,9 +2056,10 @@ function RiskRadar({ onNavigate }: { onNavigate: (id: string, focusId?: string) 
               >
                 Run final readiness check
               </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -2061,8 +2074,8 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
   
   // Status text based on score and human review
   let statusText = "Submission Ready";
-  if (profile?.finalHumanReviewCompleted) {
-    statusText = "Final Verified";
+  if (finalReady === 100) {
+    statusText = "Final Verified / Ready to Submit";
   } else if (finalReady >= 92) {
     statusText = "Submission Ready";
   } else if (finalReady >= 80) {
@@ -2112,13 +2125,40 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
   const [reviewerName, setReviewerName] = useState("");
   const [reviewDate, setReviewDate] = useState(new Date().toISOString().split("T")[0]);
   const [checklistState, setChecklistState] = useState({
-    scholarshipFitReviewed: true,
-    essayReviewed: true,
-    requiredDocumentsReviewed: true,
-    recommendationLettersReviewed: true,
-    deadlinePlanReviewed: true,
-    finalApplicationPackageReviewed: true,
+    scholarshipFitReviewed: false,
+    essayReviewed: false,
+    requiredDocumentsReviewed: false,
+    recommendationLettersReviewed: false,
+    deadlinePlanReviewed: false,
+    finalApplicationPackageReviewed: false,
   });
+
+  // Sync state from profile
+  useEffect(() => {
+    if (profile?.finalHumanReviewChecklist) {
+      setChecklistState(profile.finalHumanReviewChecklist);
+    }
+  }, [profile?.finalHumanReviewChecklist]);
+
+  useEffect(() => {
+    if (isModalOpen && profile) {
+      setReviewerType(profile.finalHumanReviewerType || "Mentor");
+      setReviewerName(profile.finalHumanReviewerName || "");
+      setReviewDate(profile.finalHumanReviewDate || new Date().toISOString().split("T")[0]);
+      if (profile.finalHumanReviewChecklist) {
+        setChecklistState(profile.finalHumanReviewChecklist);
+      } else {
+        setChecklistState({
+          scholarshipFitReviewed: false,
+          essayReviewed: false,
+          requiredDocumentsReviewed: false,
+          recommendationLettersReviewed: false,
+          deadlinePlanReviewed: false,
+          finalApplicationPackageReviewed: false,
+        });
+      }
+    }
+  }, [isModalOpen, profile]);
 
   const confirmHumanReview = () => {
     if (profile) {
@@ -2146,7 +2186,9 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
           <p className="text-xs text-slate-500 font-semibold mt-1">Verify submission readiness in one place.</p>
         </div>
         <div>
-          <p className="text-sm font-bold text-emerald-600 uppercase tracking-wide">{profile?.finalHumanReviewCompleted ? "Final Verified / Ready to Submit" : statusText}</p>
+          <p className="text-sm font-bold text-emerald-600 uppercase tracking-wide">
+            {finalReady === 100 ? "Final Verified / Ready to Submit" : "Submission Ready"}
+          </p>
           <p className="text-4xl font-black text-blue-600">{finalReady}%</p>
         </div>
       </div>
@@ -2188,7 +2230,7 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-black text-emerald-950">Automated compliance scan successful</p>
-                  <p className="text-[11px] text-emerald-800 font-semibold mt-0.5">All system-checked requirements passed. Ready for final human review.</p>
+                  <p className="text-[11px] text-emerald-800 font-semibold mt-0.5">All system-checked requirements passed. Ready for final compliance confirmation.</p>
                 </div>
               </div>
 
@@ -2227,7 +2269,7 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
                   <div className="flex gap-3">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                     <div>
-                      <p className="text-sm font-bold text-slate-900 font-bold">Academic/professional recommenders secured and uploaded</p>
+                      <p className="text-sm font-bold text-slate-900">Academic/professional recommenders secured and uploaded</p>
                       <p className="text-xs text-slate-500 font-semibold mt-0.5">
                         All recommenders have submitted required letters.
                       </p>
@@ -2264,7 +2306,7 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
                   <span className="text-[10px] font-black text-emerald-600 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase shrink-0">PASSED</span>
                 </div>
 
-                {/* 6. Final human review */}
+                {/* 6. Final human review indicator */}
                 <div className={cn(
                   "p-4 border rounded-2xl flex items-start justify-between gap-4 transition-all",
                   profile?.finalHumanReviewCompleted
@@ -2278,7 +2320,7 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
                       <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                     )}
                     <div>
-                      <p className="text-sm font-bold text-slate-900 font-bold">Final human review</p>
+                      <p className="text-sm font-bold text-slate-900">Final human review</p>
                       <p className="text-xs text-slate-500 font-semibold mt-0.5">
                         {profile?.finalHumanReviewCompleted 
                           ? `Human review completed by ${profile?.finalHumanReviewerType || "Advisor"}${profile?.finalHumanReviewerName ? ` (${profile.finalHumanReviewerName})` : ""}.`
@@ -2294,6 +2336,80 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
                   )}>
                     {profile?.finalHumanReviewCompleted ? "PASSED" : "PENDING"}
                   </span>
+                </div>
+              </div>
+
+              {/* Final Completion Gate Panel */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4">
+                <div>
+                  <h4 className="text-base font-bold text-slate-900">Final Completion Gate</h4>
+                  <p className="text-xs text-slate-500 font-semibold mt-1">
+                    100% readiness is only unlocked after automated checks are passed, final compliance is confirmed, and human review is completed.
+                  </p>
+                </div>
+
+                <div className="space-y-4 border-t border-slate-200 pt-4">
+                  {/* Checkbox 1: Final Compliance */}
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={profile?.finalComplianceCheckCompleted || false}
+                      onChange={(e) => {
+                        if (profile) {
+                          setCustomProfile({
+                            ...profile,
+                            finalComplianceCheckCompleted: e.target.checked,
+                            finalComplianceCheckCompletedAt: e.target.checked ? new Date().toISOString().split("T")[0] : null
+                          });
+                        }
+                      }}
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-350 rounded mt-0.5"
+                    />
+                    <div>
+                      <span className="text-sm font-bold text-slate-900 block">Final Compliance Check fully completed</span>
+                      <span className="text-[11px] text-slate-500 font-semibold block mt-0.5 leading-relaxed">
+                        I confirm that the submission checklist, required documents, deadline plan, scholarship fit, and application package have been reviewed and are ready for final submission.
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Checkbox 2: Final Human Review */}
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={profile?.finalHumanReviewCompleted || false}
+                      onChange={(e) => {
+                        if (profile) {
+                          if (e.target.checked) {
+                            setIsModalOpen(true);
+                          } else {
+                            setCustomProfile({
+                              ...profile,
+                              finalHumanReviewCompleted: false,
+                              finalHumanReviewDate: null,
+                              finalHumanReviewerType: null,
+                              finalHumanReviewerName: null,
+                              finalHumanReviewChecklist: {
+                                scholarshipFitReviewed: false,
+                                essayReviewed: false,
+                                requiredDocumentsReviewed: false,
+                                recommendationLettersReviewed: false,
+                                deadlinePlanReviewed: false,
+                                finalApplicationPackageReviewed: false,
+                              }
+                            });
+                          }
+                        }
+                      }}
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-slate-350 rounded mt-0.5"
+                    />
+                    <div>
+                      <span className="text-sm font-bold text-slate-900 block">Final Human Review completed</span>
+                      <span className="text-[11px] text-slate-500 font-semibold block mt-0.5 leading-relaxed">
+                        I confirm that a mentor, teacher, advisor, peer reviewer, or trusted reviewer has reviewed the final application package.
+                      </span>
+                    </div>
+                  </label>
                 </div>
               </div>
 
@@ -2340,28 +2456,68 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100 text-center space-y-3">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">Readiness Score</span>
               <div className="text-4xl font-black text-blue-600">
-                {profile?.finalHumanReviewCompleted ? "100" : "94"} <span className="text-xs font-bold text-slate-450">OUT OF 100</span>
+                {finalReady} <span className="text-xs font-bold text-slate-455">OUT OF 100</span>
               </div>
               <div className={cn(
                 "text-xs font-extrabold uppercase px-3 py-1 rounded-full border inline-block",
-                profile?.finalHumanReviewCompleted
+                finalReady === 100
                   ? "bg-emerald-50 border-emerald-250 text-emerald-700"
                   : "bg-blue-50 border-blue-200 text-blue-700"
               )}>
-                {profile?.finalHumanReviewCompleted ? "Final Verified" : "Submission Ready"}
+                {finalReady === 100 ? "Final Verified / Ready to Submit" : "Submission Ready"}
               </div>
-              <p className="text-[10px] text-slate-500 font-semibold leading-normal mt-2">
-                {profile?.finalHumanReviewCompleted
-                  ? "All automated checks passed and final human review completed."
-                  : "100 points received if every final item is completed and human-reviewed."}
-              </p>
+
+              {/* Messages block based on gates */}
+              <div className="text-left text-xs text-slate-600 pt-2 border-t border-slate-100 mt-2 space-y-1.5 leading-normal font-semibold">
+                {!profile?.finalComplianceCheckCompleted ? (
+                  <p className="text-amber-700 font-bold text-center">
+                    Automated checks passed. Final compliance confirmation is still required.
+                  </p>
+                ) : !profile?.finalHumanReviewCompleted ? (
+                  <p className="text-amber-700 font-bold text-center">
+                    Final compliance is confirmed. Human review is still required before final verification.
+                  </p>
+                ) : finalReady === 100 ? (
+                  <p className="text-emerald-700 font-bold text-center">
+                    All automated checks passed, final compliance was confirmed, and the application package has been human-reviewed.
+                  </p>
+                ) : (
+                  <div className="space-y-1.5 text-rose-700">
+                    <p className="font-extrabold text-center">Some final conditions are still missing:</p>
+                    <ul className="list-disc pl-4 space-y-0.5 text-[11px] font-bold">
+                      {!(profile.recommenderStatus === "Submitted" || profile.recommenderStatus === "Uploaded" || profile.recommenderStatus === "Received") && (
+                        <li>Recommender status must be Submitted, Uploaded, or Received.</li>
+                      )}
+                      {!(profile.deadlineTimelineStatus === "confirmed" && profile.deadlineMilestonesConfirmed === true) && (
+                        <li>Application timeline must be drafted and milestones confirmed.</li>
+                      )}
+                      {!(checklistState.scholarshipFitReviewed &&
+                         checklistState.essayReviewed &&
+                         checklistState.requiredDocumentsReviewed &&
+                         checklistState.recommendationLettersReviewed &&
+                         checklistState.deadlinePlanReviewed &&
+                         checklistState.finalApplicationPackageReviewed) && (
+                        <li>All human review checklist items must be reviewed and confirmed.</li>
+                      )}
+                      {(analysis?.risks?.evidenceRisk > 60 ||
+                        analysis?.risks?.deadlineRisk > 60 ||
+                        analysis?.risks?.recommenderRisk > 60 ||
+                        analysis?.risks?.storyRisk > 60 ||
+                        analysis?.risks?.fitRisk > 60 ||
+                        analysis?.risks?.englishRisk > 60) && (
+                        <li>All High or Critical risks must be resolved.</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="p-4 bg-blue-50/20 border border-blue-100 rounded-2xl space-y-2 text-left">
               <span className="text-[10px] font-black uppercase text-blue-600 tracking-wider block">Candidate Status</span>
               <p className="text-xs font-extrabold text-slate-900">{profile?.name || "Alya Putri"}</p>
               <p className="text-xs text-slate-650 font-semibold leading-normal">
-                {profile?.finalHumanReviewCompleted
+                {finalReady === 100
                   ? `${profile?.name || "Alya"}'s readiness is Final Verified at 100% after completed human review.`
                   : `${profile?.name || "Alya"}'s readiness has improved from 78 to 94 after automated compliance checks. Final 100 requires completed human review.`}
               </p>
@@ -2530,9 +2686,6 @@ function FinalReview({ onNavigate }: { onNavigate: (id: string, focusId?: string
           </div>
         </div>
       )}
-    </div>
-  );
-}</div>
     </div>
   );
 }

@@ -85,8 +85,9 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
   const hasCritical = riskValues.some(v => v > 80);
   const hasHigh = riskValues.some(v => v > 60 && v <= 80);
   
-  let readinessStatus: "Needs Work" | "Developing" | "Moderate" | "Strong" | "Excellent" | "Final Verified" | "Final Verified / Ready to Submit";
+  let readinessStatus: "Needs Work" | "Developing" | "Moderate" | "Strong" | "Excellent" | "Final Verified" | "Final Verified / Ready to Submit" | "Submission Ready";
   if (score === 100) readinessStatus = "Final Verified / Ready to Submit";
+  else if (score === 94) readinessStatus = "Submission Ready";
   else if (score >= 92) readinessStatus = "Excellent";
   else if (score >= 80) readinessStatus = "Strong";
   else if (score >= 70) readinessStatus = "Moderate";
@@ -95,7 +96,7 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
 
   // Capping rule: A student can become green / Strong only if readinessScore >= 80, no Critical risk exists, and no High blocker exists
   if (hasCritical || hasHigh) {
-    if (readinessStatus === "Strong" || readinessStatus === "Excellent" || readinessStatus === "Final Verified / Ready to Submit") {
+    if (readinessStatus === "Strong" || readinessStatus === "Excellent" || readinessStatus === "Final Verified / Ready to Submit" || readinessStatus === "Submission Ready") {
       readinessStatus = "Moderate";
     }
   }
@@ -103,7 +104,7 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
   // Determine colors based on capped status
   let readinessColor: "red" | "amber" | "yellow" | "green" = "yellow";
   let readinessColorClass = "text-amber-700 bg-amber-50 border-amber-100";
-  if (readinessStatus === "Final Verified / Ready to Submit" || readinessStatus === "Excellent" || readinessStatus === "Strong") {
+  if (readinessStatus === "Final Verified / Ready to Submit" || readinessStatus === "Excellent" || readinessStatus === "Strong" || readinessStatus === "Submission Ready") {
     readinessColor = "green";
     readinessColorClass = "text-emerald-700 bg-emerald-50 border-emerald-100";
   } else if (readinessStatus === "Moderate") {
@@ -111,7 +112,7 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
     readinessColorClass = "text-amber-700 bg-amber-50 border-amber-100"; // Yellow-Orange style
   } else if (readinessStatus === "Developing") {
     readinessColor = "amber";
-    readinessColorClass = "text-amber-800 bg-amber-50/50 border-amber-200";
+    readinessColorClass = "text-amber-800 bg-amber-50/50 border-amber-250";
   } else {
     readinessColor = "red";
     readinessColorClass = "text-rose-700 bg-rose-50 border-rose-100";
@@ -126,8 +127,8 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
 
   const isAlya = profile.name?.toLowerCase().includes("alya");
   const isRecSubmitted = profile.recommenderStatus === "Submitted" || profile.recommenderStatus === "Uploaded" || profile.recommenderStatus === "Received";
-  const isTimelineConfirmed = profile.deadlineTimelineStatus === "confirmed" || profile.deadlineMilestonesConfirmed === true;
-  const isComplianceCompleted = profile.complianceScanCompleted === true || profile.complianceScanStatus === "completed" || profile.finalReviewStatus === "completed";
+  const isTimelineConfirmed = profile.deadlineTimelineStatus === "confirmed" && profile.deadlineMilestonesConfirmed === true;
+  const isComplianceCompleted = profile.complianceScanCompleted === true && profile.automatedComplianceChecksPassed === true;
 
   if (isAlya) {
     if (!isRecSubmitted) {
@@ -148,18 +149,30 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
       improvementExplanation = "Run final compliance scanner check to audit application completeness.";
       potentialImprovementCopy = "Potential improvement: +3 to +5 points after compliance scan.";
       howToReachGreenCopy = "Running final compliance scanner will verify target requirements.";
-    } else if (!profile.finalHumanReviewCompleted) {
-      overallReadinessReasoning = "Your readiness is Excellent. The automated compliance scan indicates the application package is broadly submission-ready, with final human review recommended before submission.";
+    } else if (!profile.finalComplianceCheckCompleted) {
+      overallReadinessReasoning = "Automated checks passed. Final compliance confirmation is still required.";
       overallReadinessWhy = overallReadinessReasoning;
-      improvementExplanation = "Excellent readiness. Final human review is recommended before submission.";
+      improvementExplanation = "Automated checks passed. Final compliance confirmation is still required.";
+      potentialImprovementCopy = "Submission Ready - Automated checks verified.";
+      howToReachGreenCopy = "Verify manual checklist items under the Final Completion Gate.";
+    } else if (!profile.finalHumanReviewCompleted) {
+      overallReadinessReasoning = "Final compliance is confirmed. Human review is still required before final verification.";
+      overallReadinessWhy = overallReadinessReasoning;
+      improvementExplanation = "Final compliance is confirmed. Human review is still required before final verification.";
       potentialImprovementCopy = "Submission Ready - Broadly compliant.";
-      howToReachGreenCopy = "Verify document uploads and check official portals for portal-level changes.";
-    } else {
-      overallReadinessReasoning = "Your readiness is Final Verified because all automated compliance checks passed and the final application package has been human-reviewed.";
+      howToReachGreenCopy = "Confirm that your advisor or mentor has reviewed the package to unlock 100%.";
+    } else if (score === 100) {
+      overallReadinessReasoning = "All automated checks passed, final compliance was confirmed, and the application package has been human-reviewed.";
       overallReadinessWhy = overallReadinessReasoning;
       improvementExplanation = "Your application is 100% complete and final verified. Ready to submit.";
       potentialImprovementCopy = "100% - Ready to submit!";
       howToReachGreenCopy = "Proceed to submit your application package to the portal.";
+    } else {
+      overallReadinessReasoning = "Final compliance and human review are checked, but some final requirements or unresolved risks are still missing.";
+      overallReadinessWhy = overallReadinessReasoning;
+      improvementExplanation = "Address remaining checklist items or unresolved risks to reach 100%.";
+      potentialImprovementCopy = "Submission Ready - Missing final dependencies.";
+      howToReachGreenCopy = "Ensure all recommendation letters, timelines, and required documents are complete.";
     }
   } else {
     const highRisks: string[] = [];
@@ -180,7 +193,7 @@ function getReadinessCappedStatus(score: number, risks: RiskRadarData, profile: 
     } else {
       overallReadinessReasoning = `Your readiness is ${readinessStatus} based on your profile scan and current risk radar.`;
       overallReadinessWhy = overallReadinessReasoning;
-      if (readinessStatus === "Strong" || readinessStatus === "Excellent") {
+      if (readinessStatus === "Strong" || readinessStatus === "Excellent" || readinessStatus === "Submission Ready") {
         improvementExplanation = "Your candidacy is in a strong position. Continue polishing details and review submission forms.";
         potentialImprovementCopy = "Potential improvement: +2 to +5 points after final proofreading.";
         howToReachGreenCopy = "Ensure all documents are ready and recommenders submit on time to maintain this status.";
@@ -325,8 +338,8 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
 
   // Dynamic next best action mapping
   const isRecSubmitted = profile.recommenderStatus === "Submitted" || profile.recommenderStatus === "Uploaded" || profile.recommenderStatus === "Received";
-  const isTimelineConfirmed = profile.deadlineTimelineStatus === "confirmed" || profile.deadlineMilestonesConfirmed === true;
-  const isComplianceCompleted = profile.complianceScanCompleted === true || profile.complianceScanStatus === "completed" || profile.finalReviewStatus === "completed";
+  const isTimelineConfirmed = profile.deadlineTimelineStatus === "confirmed" && profile.deadlineMilestonesConfirmed === true;
+  const isComplianceCompleted = profile.complianceScanCompleted === true && profile.automatedComplianceChecksPassed === true;
 
   let nextBestActionNew = {
     title: "Secure recommender readiness",
@@ -363,15 +376,37 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
       ctaText: "Run Compliance Scanner",
       ctaPath: "/preparation?tab=review"
     };
+  } else if (!profile.finalComplianceCheckCompleted) {
+    nextBestActionNew = {
+      title: "Complete final compliance confirmation",
+      whyItMatters: "Automated compliance checks are passed. Final manual verification is required to unlock submission readiness.",
+      actionCopy: "Review the final compliance check to confirm documents, timeline, and scholarship fit.",
+      relatedRisk: "Final compliance confirmation pending.",
+      potentialImpact: "+0 readiness points (Capped at 94%)",
+      reasoning: "Confirming the final compliance check ensures that all manual application details are fully completed and validated.",
+      ctaText: "Confirm Final Compliance",
+      ctaPath: "/preparation?tab=review"
+    };
+  } else if (!profile.finalHumanReviewCompleted) {
+    nextBestActionNew = {
+      title: "Complete final human review",
+      whyItMatters: "Final compliance is confirmed. Peer or mentor review is required to verify the application package.",
+      actionCopy: "Submit your application package to a mentor, teacher, or advisor for final review.",
+      relatedRisk: "Final human review pending.",
+      potentialImpact: "+6 readiness points (Unlocks 100%)",
+      reasoning: "A final human review ensures that all aspects of your application package are in their absolute best shape.",
+      ctaText: "Mark Human Review Completed",
+      ctaPath: "/preparation?tab=review"
+    };
   } else {
     nextBestActionNew = {
-      title: "Final human review",
-      whyItMatters: "All automated readiness dimensions are secured. Proceed with peer or mentor sign-off.",
-      actionCopy: "Review final application package with an advisor or scholarship mentor.",
-      relatedRisk: "No critical or high blocking risks remaining.",
-      potentialImpact: "Ready for submission",
-      reasoning: "A final eyes-on review ensures tone, formatting, and minor details align with committee expectations.",
-      ctaText: "Review final application package",
+      title: "Submit application package",
+      whyItMatters: "All automated checks passed, final compliance was confirmed, and human review is complete.",
+      actionCopy: "Your application package is 100% complete and final verified.",
+      relatedRisk: "None",
+      potentialImpact: "Ready to submit",
+      reasoning: "Proceed to submit your final application package to the scholarship portal.",
+      ctaText: "Submit application package / Download final report",
       ctaPath: "/preparation?tab=one-page-report"
     };
   }
@@ -462,7 +497,66 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
   const englishScore = profile.englishStatus !== "Not Taken" && profile.englishScore ? 85 : 25;
   const evidenceScore = [profile.hasLeadership, profile.hasResearch, profile.hasCommunityImpact, profile.hasWorkExperience].filter(Boolean).length * 22;
 
-  const mentorRecommendations: RecommendationCard[] = recommenderRiskVal > 30 ? [
+  const isFinalVerified = profile.finalHumanReviewCompleted === true && profile.finalComplianceCheckCompleted === true && readinessScore === 100;
+
+  const mentorRecommendations: RecommendationCard[] = isFinalVerified ? [
+    {
+      title: "Submit application package",
+      desc: "All automated and manual compliance checks are final verified and ready.",
+      ctaText: "Submit Package",
+      ctaAction: "review"
+    },
+    {
+      title: "Download final report",
+      desc: "Export your complete readiness DNA audit report for your records.",
+      ctaText: "Download Report",
+      ctaAction: "report"
+    },
+    {
+      title: "Review final verified checklist",
+      desc: "Take a final look at your completed and verified application roadmap.",
+      ctaText: "Review Checklist",
+      ctaAction: "roadmap"
+    }
+  ] : (!profile.finalHumanReviewCompleted && profile.finalComplianceCheckCompleted) ? [
+    {
+      title: "Complete final human review",
+      desc: "Secure mentor, teacher, or advisor review and sign-off on your final package.",
+      ctaText: "Start Human Review",
+      ctaAction: "review"
+    },
+    {
+      title: "Refine essays and SOP",
+      desc: "Focus on motivation, personal mission, and fit.",
+      ctaText: "Improve story arc",
+      ctaAction: "essay"
+    },
+    {
+      title: "Practice interview answers",
+      desc: "Practice story-based answers using the STAR method.",
+      ctaText: "Practice interview",
+      ctaAction: "interview"
+    }
+  ] : (!profile.finalComplianceCheckCompleted && isComplianceCompleted) ? [
+    {
+      title: "Complete final compliance confirmation",
+      desc: "Verify manual compliance items to complete the final compliance check step.",
+      ctaText: "Confirm Compliance",
+      ctaAction: "review"
+    },
+    {
+      title: "Refine essays and SOP",
+      desc: "Focus on motivation, personal mission, and fit.",
+      ctaText: "Improve story arc",
+      ctaAction: "essay"
+    },
+    {
+      title: "Practice interview answers",
+      desc: "Practice story-based answers using the STAR method.",
+      ctaText: "Practice interview",
+      ctaAction: "interview"
+    }
+  ] : !isRecSubmitted ? [
     {
       title: "Secure recommender readiness",
       desc: "Share context and key achievements early with referees.",
@@ -487,32 +581,7 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
       ctaText: "Practice interview",
       ctaAction: "interview"
     }
-  ] : (profile.deadlineTimelineStatus === "confirmed" || profile.deadlineMilestonesConfirmed === true) ? [
-    {
-      title: "Run final compliance check",
-      desc: "Verify all application requirements and check official portal checklist.",
-      ctaText: "Run compliance check",
-      ctaAction: "review"
-    },
-    {
-      title: "Refine essays and SOP",
-      desc: "Focus on motivation, personal mission, and fit.",
-      ctaText: "Improve story arc",
-      ctaAction: "essay"
-    },
-    {
-      title: "Verify document checklist",
-      desc: "Scan and catalog official transcript PDFs and leadership letters.",
-      ctaText: "Open documents",
-      ctaAction: "documents"
-    },
-    {
-      title: "Practice interview answers",
-      desc: "Practice story-based answers using the STAR method.",
-      ctaText: "Practice interview",
-      ctaAction: "interview"
-    }
-  ] : [
+  ] : !isTimelineConfirmed ? [
     {
       title: "Confirm application deadlines",
       desc: "Build application submission timeline and calendar events.",
@@ -537,9 +606,100 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
       ctaText: "Practice interview",
       ctaAction: "interview"
     }
+  ] : [
+    {
+      title: "Run final compliance check",
+      desc: "Verify all application requirements and check official portal checklist.",
+      ctaText: "Run compliance check",
+      ctaAction: "review"
+    },
+    {
+      title: "Refine essays and SOP",
+      desc: "Focus on motivation, personal mission, and fit.",
+      ctaText: "Improve story arc",
+      ctaAction: "essay"
+    },
+    {
+      title: "Verify document checklist",
+      desc: "Scan and catalog official transcript PDFs and leadership letters.",
+      ctaText: "Open documents",
+      ctaAction: "documents"
+    },
+    {
+      title: "Practice interview answers",
+      desc: "Practice story-based answers using the STAR method.",
+      ctaText: "Practice interview",
+      ctaAction: "interview"
+    }
   ];
 
-  const recommendedActions = recommenderRiskVal > 30 ? [
+  const recommendedActions = isFinalVerified ? [
+    {
+      title: "Submit application package",
+      why: "All automated and manual compliance checks are final verified and ready.",
+      priority: "High" as const,
+      ctaText: "Submit Package",
+      path: "/preparation?tab=review"
+    },
+    {
+      title: "Download final report",
+      why: "Export your complete readiness DNA audit report for your records.",
+      priority: "Medium" as const,
+      ctaText: "Download Report",
+      path: "/preparation?tab=one-page-report"
+    },
+    {
+      title: "Review final verified checklist",
+      why: "Take a final look at your completed and verified application roadmap.",
+      priority: "Low" as const,
+      ctaText: "Review Checklist",
+      path: "/preparation?tab=roadmap"
+    }
+  ] : (!profile.finalHumanReviewCompleted && profile.finalComplianceCheckCompleted) ? [
+    {
+      title: "Complete final human review",
+      why: "Secure mentor, teacher, or advisor review and sign-off on your final package.",
+      priority: "High" as const,
+      ctaText: "Start Human Review",
+      path: "/preparation?tab=review"
+    },
+    {
+      title: "Prepare Evidence Pack",
+      why: "Scan and catalog official transcript PDFs and supporting documents.",
+      priority: "Medium" as const,
+      ctaText: "Manage Documents",
+      path: "/preparation?tab=documents"
+    },
+    {
+      title: "Improve Essay Story Arc",
+      why: "Draft personal statement focusing on motivating problems in target field.",
+      priority: "Medium" as const,
+      ctaText: "Open Essay Coach",
+      path: "/preparation?tab=essay-coach"
+    }
+  ] : (!profile.finalComplianceCheckCompleted && isComplianceCompleted) ? [
+    {
+      title: "Complete final compliance confirmation",
+      why: "Verify manual compliance items to complete the final compliance check step.",
+      priority: "High" as const,
+      ctaText: "Confirm Compliance",
+      path: "/preparation?tab=review"
+    },
+    {
+      title: "Prepare Evidence Pack",
+      why: "Scan and catalog official transcript PDFs and supporting documents.",
+      priority: "Medium" as const,
+      ctaText: "Manage Documents",
+      path: "/preparation?tab=documents"
+    },
+    {
+      title: "Improve Essay Story Arc",
+      why: "Draft personal statement focusing on motivating problems in target field.",
+      priority: "Medium" as const,
+      ctaText: "Open Essay Coach",
+      path: "/preparation?tab=essay-coach"
+    }
+  ] : !isRecSubmitted ? [
     {
       title: "Secure recommender contact",
       why: "Contact academic/professional referees to secure letters.",
@@ -568,7 +728,36 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
       ctaText: "Open Essay Coach",
       path: "/preparation?tab=essay-coach"
     }
-  ] : (profile.deadlineTimelineStatus === "confirmed" || profile.deadlineMilestonesConfirmed === true) ? [
+  ] : !isTimelineConfirmed ? [
+    {
+      title: "Confirm Scholarship Deadlines",
+      why: "Add official timeline milestones and portal submission dates to calendar.",
+      priority: "High" as const,
+      ctaText: "Build Timeline",
+      path: "/preparation?tab=roadmap&focus=deadline"
+    },
+    {
+      title: "Prepare Evidence Pack",
+      why: "Scan and catalog official transcript PDFs, leadership proof, and supporting documents.",
+      priority: "Medium" as const,
+      ctaText: "Manage Documents",
+      path: "/preparation?tab=documents"
+    },
+    {
+      title: "Improve Essay Story Arc",
+      why: "Draft personal statement focusing on motivating problems in target field.",
+      priority: "Medium" as const,
+      ctaText: "Open Essay Coach",
+      path: "/preparation?tab=essay-coach"
+    },
+    {
+      title: "Run Final Compliance Scan",
+      why: "Check final application requirements before submission.",
+      priority: "Medium" as const,
+      ctaText: "Run Compliance Scan",
+      path: "/preparation?tab=review"
+    }
+  ] : [
     {
       title: "Run Final Compliance Scan",
       why: "Check final application requirements before submission.",
@@ -596,35 +785,6 @@ export function calculateSentinelAnalysis(profile: StudentProfile): SentinelAnal
       priority: "Low" as const,
       ctaText: "Build Timeline",
       path: "/preparation?tab=roadmap&focus=deadline"
-    }
-  ] : [
-    {
-      title: "Confirm Scholarship Deadlines",
-      why: "Add official timeline milestones and portal submission dates to calendar.",
-      priority: "High" as const,
-      ctaText: "Build Timeline",
-      path: "/preparation?tab=roadmap&focus=deadline"
-    },
-    {
-      title: "Prepare Evidence Pack",
-      why: "Scan and catalog official transcript PDFs, leadership proof, and supporting documents.",
-      priority: "Medium" as const,
-      ctaText: "Manage Documents",
-      path: "/preparation?tab=documents"
-    },
-    {
-      title: "Improve Essay Story Arc",
-      why: "Draft personal statement focusing on motivating problems in target field.",
-      priority: "Medium" as const,
-      ctaText: "Open Essay Coach",
-      path: "/preparation?tab=essay-coach"
-    },
-    {
-      title: "Run Final Compliance Scan",
-      why: "Check final application requirements before submission.",
-      priority: "Medium" as const,
-      ctaText: "Run Compliance Scan",
-      path: "/preparation?tab=review"
     }
   ];
 
@@ -698,7 +858,7 @@ export function getSentinelAnalysis(profile: StudentProfile, apiResult?: any): S
     improvementExplanation,
     potentialImprovementCopy,
     howToReachGreenCopy
-  } = getReadinessCappedStatus(readinessScore, risks, profile.name);
+  } = getReadinessCappedStatus(readinessScore, risks, profile);
 
   const matches = root.matches ? root.matches : localAnalysis.matches;
   const topMatch = matches && matches[0] ? matches[0] : localAnalysis.topMatch;
@@ -741,9 +901,7 @@ export function getSentinelAnalysis(profile: StudentProfile, apiResult?: any): S
     mentorRecommendations: localAnalysis.mentorRecommendations,
     recommendedActions: localAnalysis.recommendedActions
   };
-}
-
-export function getActiveAnalysis(
+}export function getActiveAnalysis(
   profile: StudentProfile | null,
   sentinelResult: SentinelAnalysisResult | null
 ): SentinelAnalysisResult | null {
@@ -759,6 +917,9 @@ export function getActiveAnalysis(
     savedProfile.recommenderStatus !== profile.recommenderStatus ||
     savedProfile.deadlineTimelineStatus !== profile.deadlineTimelineStatus ||
     savedProfile.deadlineMilestonesConfirmed !== profile.deadlineMilestonesConfirmed ||
+    savedProfile.finalComplianceCheckCompleted !== profile.finalComplianceCheckCompleted ||
+    savedProfile.finalHumanReviewCompleted !== profile.finalHumanReviewCompleted ||
+    JSON.stringify(savedProfile.finalHumanReviewChecklist) !== JSON.stringify(profile.finalHumanReviewChecklist) ||
     savedProfile.gpa !== profile.gpa ||
     savedProfile.englishStatus !== profile.englishStatus ||
     savedProfile.englishScore !== profile.englishScore ||
