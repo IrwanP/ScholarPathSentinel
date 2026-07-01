@@ -21,7 +21,8 @@ export default function RiskRadarChart({ risks, mode, className }: RiskRadarChar
     const polyPoints = categories.map((cat, idx) => {
       const angle = (Math.PI / 3) * idx - Math.PI / 2;
       const val = risks[cat.key] ?? 0;
-      const dist = (val / 100) * 40;
+      const visualVal = Math.min(100, Math.max(val, 10) * 1.35);
+      const dist = (visualVal / 100) * 40;
       const x = 50 + dist * Math.cos(angle);
       const y = 50 + dist * Math.sin(angle);
       return `${x.toFixed(2)},${y.toFixed(2)}`;
@@ -65,9 +66,9 @@ export default function RiskRadarChart({ risks, mode, className }: RiskRadarChar
         {/* Risk Polygon */}
         <polygon
           points={polyPoints}
-          fill="rgba(219, 68, 55, 0.08)"
+          fill="rgba(219, 68, 55, 0.16)"
           stroke="#db4437"
-          strokeWidth="1.5"
+          strokeWidth="2.5"
         />
       </svg>
     );
@@ -77,7 +78,8 @@ export default function RiskRadarChart({ risks, mode, className }: RiskRadarChar
   const polyPointsDetailed = categories.map((cat, idx) => {
     const angle = (Math.PI / 3) * idx - Math.PI / 2;
     const val = risks[cat.key] ?? 0;
-    const dist = (val / 100) * 80;
+    const visualVal = Math.min(100, Math.max(val, 10) * 1.35);
+    const dist = (visualVal / 100) * 80;
     const x = 140 + dist * Math.cos(angle);
     const y = 140 + dist * Math.sin(angle);
     return `${x.toFixed(2)},${y.toFixed(2)}`;
@@ -127,9 +129,9 @@ export default function RiskRadarChart({ risks, mode, className }: RiskRadarChar
       {/* Risk Polygon */}
       <polygon
         points={polyPointsDetailed}
-        fill="rgba(234, 67, 37, 0.08)"
+        fill="rgba(234, 67, 37, 0.16)"
         stroke="#EA4335"
-        strokeWidth="2"
+        strokeWidth="2.5"
       />
 
       {/* Center point */}

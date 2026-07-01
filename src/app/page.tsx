@@ -155,7 +155,7 @@ export default function OverviewPage() {
 
       {/* Main Executive Dashboard Grid */}
       {analysis && profile ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1fr_1.2fr] gap-6">
           
           {/* Card 1: Student Profile Summary */}
           <motion.div 
@@ -165,30 +165,34 @@ export default function OverviewPage() {
             className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex flex-col justify-between"
           >
             <div>
-              <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-4">
-                <div className="h-12 w-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center overflow-hidden shrink-0">
+              {/* Centered Identity Block */}
+              <div className="flex flex-col items-center text-center pb-6 mb-6 border-b border-slate-100 space-y-4">
+                <div className="h-36 w-36 rounded-full overflow-hidden shrink-0 flex items-center justify-center bg-transparent">
                   {profile.profilePhotoUrl ? (
-                    <img src={profile.profilePhotoUrl} alt={profile.name} className="h-full w-full object-cover" />
+                    <img src={profile.profilePhotoUrl} alt={profile.name} className="h-full w-full object-cover rounded-full" />
                   ) : (
-                    <User className="h-5 w-5 text-blue-600" />
+                    <div className="h-full w-full rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
+                      <User className="h-16 w-16 text-slate-400" />
+                    </div>
                   )}
                 </div>
-                <div className="min-w-0">
-                  <h3 className="text-lg font-bold text-[#0F172A] truncate">{profile.name}</h3>
-                  <p className="text-xs text-slate-400 font-semibold">{profile.origin} • Candidate</p>
+                <div className="space-y-1">
+                  <h3 className="text-xl font-extrabold text-[#0F172A] truncate">{profile.name}</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-0.5">{profile.origin} • Candidate</p>
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <div className="flex justify-between items-center text-sm border-b border-slate-50 pb-2">
+              {/* Two-column Key-Value Details */}
+              <div className="space-y-4 px-1 pb-6 border-b border-slate-100">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-400 font-medium">Target Degree</span>
                   <span className="font-bold text-[#0F172A]">{profile.targetDegree}</span>
                 </div>
-                <div className="flex justify-between items-center text-sm border-b border-slate-50 pb-2">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-400 font-medium">Academic GPA</span>
                   <span className="font-bold text-[#0F172A]">{profile.gpa.toFixed(2)} / 4.0</span>
                 </div>
-                <div className="flex justify-between items-center text-sm border-b border-slate-50 pb-2">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-slate-400 font-medium">Language Standard</span>
                   <span className="font-bold text-[#0F172A]">{profile.englishStatus} ({profile.englishScore})</span>
                 </div>
@@ -199,8 +203,8 @@ export default function OverviewPage() {
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-emerald-500" />
+            <div className="mt-6 flex items-center justify-center gap-2">
+              <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-xs text-slate-500 font-semibold">Active Scholarship: </span>
               <span className="text-xs font-bold text-blue-600">{analysis.topMatch?.name || "Chevening Scholarship"}</span>
             </div>
@@ -288,32 +292,81 @@ export default function OverviewPage() {
                 </span>
               </div>
 
-              {/* Stack on small, row on flex-row */}
-              <div className="flex flex-col sm:flex-row items-center gap-4">
-                <div className="w-28 h-28 shrink-0 flex items-center justify-center transition-transform group-hover:scale-105 duration-300">
-                  <RiskRadarChart mode="preview" risks={analysis.risks} className="w-full h-full" />
+              {/* Grid layout: Radar Chart & Top Risks */}
+              <div className="grid grid-cols-1 sm:grid-cols-[0.85fr_1.15fr] gap-3 items-center">
+                <div className="w-full flex justify-center">
+                  <div className="w-36 h-36 flex items-center justify-center transition-transform group-hover:scale-105 duration-300 shrink-0">
+                    <RiskRadarChart mode="preview" risks={analysis.risks} className="w-full h-full" />
+                  </div>
                 </div>
                 
-                <div className="flex-1 w-full space-y-1.5 text-xs">
+                <div className="space-y-2 text-xs">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Top Active Risks</span>
                   {[
-                    { label: "Evidence", val: analysis.risks.evidenceRisk },
-                    { label: "Deadline", val: analysis.risks.deadlineRisk },
                     { label: "Recommender", val: analysis.risks.recommenderRisk },
-                  ].map(item => (
-                    <div key={item.label} className="flex justify-between items-center bg-slate-50/50 border border-slate-100 rounded-lg px-2.5 py-1.5">
-                      <span className="text-slate-500 font-medium">{item.label} Risk</span>
-                      <span className={cn("font-bold text-[10px] px-1.5 py-0.5 rounded", 
-                        item.val <= 30 ? "text-emerald-700 bg-emerald-50" : 
-                        item.val <= 60 ? "text-amber-700 bg-amber-50" : "text-rose-700 bg-rose-50"
-                      )}>{item.val}%</span>
-                    </div>
-                  ))}
+                    { label: "Deadline", val: analysis.risks.deadlineRisk },
+                    { label: "Evidence", val: analysis.risks.evidenceRisk }
+                  ].map(item => {
+                    const getSeverity = (val: number) => {
+                      if (val <= 30) return { label: "Low", color: "text-emerald-700 bg-emerald-50 border-emerald-100" };
+                      if (val <= 60) return { label: "Medium", color: "text-amber-700 bg-amber-50 border-amber-200" };
+                      return { label: "High", color: "text-rose-700 bg-rose-50 border-rose-100" };
+                    };
+                    const sev = getSeverity(item.val);
+                    return (
+                      <div key={item.label} className="grid grid-cols-[minmax(68px,1fr)_40px_96px] gap-2 items-center bg-slate-50 border border-slate-100 rounded-xl px-3 py-1.5 text-left">
+                        <span className="text-slate-600 font-bold whitespace-normal break-normal leading-tight">{item.label} Risk</span>
+                        <span className="font-extrabold text-slate-800 text-right tabular-nums">{item.val}%</span>
+                        <div className="flex justify-end w-full">
+                          <span className={cn("text-[8px] font-black uppercase px-2.5 py-0.5 border rounded-md w-full text-center shrink-0 whitespace-nowrap", sev.color)}>
+                            {sev.label}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
 
-            <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center mt-4 pt-2 border-t border-slate-100">
-              Interactive 6-Sided Audit Scan
+            {/* Bottom Readiness Journey Strip */}
+            <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block text-left">Readiness Journey</span>
+              <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl p-2.5 text-[10px] font-semibold text-slate-600">
+                {[
+                  { score: 78, label: "Baseline" },
+                  { score: 85, label: "Action" },
+                  { score: 94, label: "Compliance" },
+                  { score: 100, label: "Verified" }
+                ].map((stage, idx, arr) => {
+                  const isCompleted = analysis.readinessScore >= stage.score;
+                  const isActive = analysis.readinessScore === stage.score || (idx === arr.length - 1 && analysis.readinessScore === 100);
+                  return (
+                    <div key={stage.label} className="flex items-center gap-1 shrink-0">
+                      <div className="flex items-center gap-1">
+                        <span className={cn(
+                          "font-black px-1.5 py-0.5 rounded text-[9px]",
+                          isCompleted
+                            ? (isActive ? "bg-blue-600 text-white" : "bg-emerald-100 text-emerald-800")
+                            : "bg-slate-200 text-slate-400"
+                        )}>
+                          {stage.score}
+                        </span>
+                        <span className={cn(
+                          isCompleted
+                            ? (isActive ? "text-blue-600 font-extrabold" : "text-emerald-700 font-extrabold")
+                            : "text-slate-400 font-medium"
+                        )}>
+                          {stage.label}
+                        </span>
+                      </div>
+                      {idx < arr.length - 1 && (
+                        <span className="text-slate-300 font-medium ml-1.5 shrink-0">→</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </motion.div>
 

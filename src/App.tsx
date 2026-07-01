@@ -52,7 +52,7 @@ function AppContent() {
       <Sidebar />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 md:px-8 lg:px-10 shrink-0">
+        <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6 md:px-8 lg:px-8 shrink-0">
           <h1 className="text-lg font-bold">{currentPageTitle}</h1>
 
           <div className="flex items-center gap-3">
@@ -84,7 +84,7 @@ function AppContent() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2 }}
-            className="flex-1 w-full min-w-0 px-4 py-8 sm:px-6 md:px-8 lg:px-10 max-w-7xl mx-auto"
+            className="flex-1 w-full min-w-0 px-4 py-8 sm:px-6 md:px-8 lg:px-8 max-w-[1440px] mx-auto"
           >
             <Routes location={location}>
               <Route path="/" element={<OverviewPage />} />
